@@ -56,6 +56,12 @@ const EventModal: React.FC<EventModalProps> = ({ event, branchId, onClose }) => 
 
   const generateAIScenarios = async () => {
     setIsLoading(true);
+    const scenariosToGenerate = 5 - alternativeScenarios.length;
+    if (scenariosToGenerate <= 0) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const schema = z.array(
         z.object({
@@ -66,7 +72,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, branchId, onClose }) => 
         })
       );
 
-      const prompt = `Generate 5 alternative scenarios for the historical event: "${event.title}" which occurred on ${formatDate(event.date)} in ${event.region || 'an unspecified region'}. Description: ${event.description}
+      const prompt = `Generate ${scenariosToGenerate} alternative scenarios for the historical event: "${event.title}" which occurred on ${formatDate(event.date)} in ${event.region || 'an unspecified region'}. Description: ${event.description}
 
 Return the scenarios as an array where each scenario has these properties:
 - title: string
@@ -245,39 +251,33 @@ Example format:
             {view === 'scenarios' && (
               <div>
                 <h3 className="text-xl font-semibold mb-3">What If Scenarios?</h3>
-                {alternativeScenarios.length > 0 ? (
+                {alternativeScenarios.length > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {alternativeScenarios.map(scenario => (
                       <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} onClose={onClose} />
                     ))}
-                    {alternativeScenarios.length < 5 && !newScenario && (
+                  </div>
+                )}
+
+                {alternativeScenarios.length < 5 && !newScenario && !isLoading && (
+                  <div className={`flex ${alternativeScenarios.length > 0 ? 'mt-4' : 'flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg'}`}>
+                    {alternativeScenarios.length === 0 && (
+                       <p className="text-lg text-gray-600 mb-4">No alternative scenarios created yet.</p>
+                    )}
+                    <div className={`flex space-x-4 ${alternativeScenarios.length === 0 ? '' : 'w-full justify-center'}`}>
+                      <button
+                        onClick={handleCreateAIScenario}
+                        className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                      >
+                        <span>Generate {5 - alternativeScenarios.length} AI Scenario{5 - alternativeScenarios.length > 1 ? 's' : ''}</span>
+                      </button>
                       <button
                         onClick={handleCreateOwnScenario}
                         className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
                       >
-                        <span>Add Own Scenario</span>
+                        <span>Create Your Own</span>
                       </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-                    <p className="text-lg text-gray-600 mb-4">No alternative scenarios created yet.</p>
-                    {!newScenario && (
-                      <div className="flex space-x-4">
-                        <button
-                          onClick={handleCreateAIScenario}
-                          className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-                        >
-                          <span>Generate AI Scenarios</span>
-                        </button>
-                        <button
-                          onClick={handleCreateOwnScenario}
-                          className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                        >
-                          <span>Create Your Own</span>
-                        </button>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 )}
 
