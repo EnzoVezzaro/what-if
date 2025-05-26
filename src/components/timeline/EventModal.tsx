@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, Tag, Calendar, ArrowRight } from 'lucide-react';
 import { TimelineEvent, AlternativeScenario } from '../../types';
@@ -15,9 +15,19 @@ interface EventModalProps {
 }
 
 const EventModal: React.FC<EventModalProps> = ({ event, branchId, onClose }) => {
-  const [view, setView] = useState<'details' | 'scenarios'>(event.isBranchPoint ? 'details' : 'details');
-  const [showAIScenarioOptions, setShowAIScenarioOptions] = useState(false);
   const alternativeScenarios = useTimelineStore(state => state.getAlternativeScenariosForEvent(event.id));
+
+  console.log('alternativeScenarios:', alternativeScenarios, event.id);
+  
+  const [view, setView] = useState<'details' | 'scenarios'>(alternativeScenarios.length > 0 ? 'scenarios' : 'details');
+  
+  useEffect(() => {
+    if (alternativeScenarios.length > 0) {
+      setView('scenarios');
+    }
+  }, [alternativeScenarios]);
+
+  const [showAIScenarioOptions, setShowAIScenarioOptions] = useState(false);
   const addAlternativeScenariosToStore = useTimelineStore(state => state.addAlternativeScenarios);
   const [userScenarios, setUserScenarios] = useState<AlternativeScenario[]>([]);
 
@@ -199,7 +209,7 @@ Example format:
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Historical Details
+                Details
               </button>
               <button
                 onClick={() => setView('scenarios')}
@@ -209,81 +219,95 @@ Example format:
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                "What If" Scenarios
+                What If?
               </button>
             </div>
           )}
-          
+
           {/* Modal content */}
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-400px)]">
-            {view === 'details' ? (
+          <div className="p-6 overflow-y-auto flex-grow custom-scrollbar">
+            {view === 'details' && (
               <div>
-                <p className="text-gray-700 leading-relaxed">{event.description}</p>
-                
-                {event.isBranchPoint && (
-                  <button
-                    onClick={() => setView('scenarios')}
-                    className="mt-6 flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <span>Explore Alternative Scenarios</span>
-                    <ArrowRight size={16} />
-                  </button>
+                <h3 className="text-xl font-semibold mb-3">Event Details</h3>
+                <p className="text-gray-700 mb-4 text-justify">{event.description}</p>
+                {event.outcomes && (
+                  <div className="mt-4">
+                    <h4 className="text-lg font-semibold mb-2">Outcomes</h4>
+                    <ul className="list-disc list-inside text-gray-700">
+                      {event.outcomes.map((outcome, index) => (
+                        <li key={index}>{outcome}</li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
-            ) : (
+            )}
+
+            {view === 'scenarios' && (
               <div>
-                <div className="flex flex-col space-y-4">
-                  {alternativeScenarios.map(scenario => (
-                    <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} onClose={onClose} />
-                  ))}
-                  {userScenarios.map((scenario, index) => (
-                    <ScenarioCard
-                      key={scenario.id}
-                      scenario={scenario}
-                      eventId={event.id}
-                      branchId={branchId}
-                      onClose={onClose}
-                      isUserCreated={true}
-                      onUpdateScenario={(updatedScenario) => {
-                        const updatedUserScenarios = [...userScenarios];
-                        updatedUserScenarios[index] = updatedScenario;
-                        setUserScenarios(updatedUserScenarios);
-                      }}
-                      onDeleteScenario={() => {
-                        const updatedUserScenarios = userScenarios.filter(s => s.id !== scenario.id);
-                        setUserScenarios(updatedUserScenarios);
-                      }}
-                    />
-                  ))}
-                  {showAIScenarioOptions && isLoading && (
-                    <div className="text-center text-gray-500">Generating AI scenarios...</div>
-                  )}
-                  {showAIScenarioOptions && scenarios.length > 0 && (
-                    <div className="flex flex-col space-y-4">
-                      {scenarios.map(scenario => (
-                        <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} />
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex space-x-4 mt-4">
-                    <button
-                      onClick={handleCreateAIScenario}
-                      className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors flex items-center justify-center"
-                    >
-                      <span className="mr-2">Generate AI Scenarios</span> <ArrowRight size={16} />
-                    </button>
-                    {userScenarios.length < 5 && (
+                <h3 className="text-xl font-semibold mb-3">What If Scenarios?</h3>
+                {alternativeScenarios.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {alternativeScenarios.map(scenario => (
+                      <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} onClose={onClose} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+                    <p className="text-lg text-gray-600 mb-4">No alternative scenarios created yet.</p>
+                    <div className="flex space-x-4">
+                      <button
+                        onClick={handleCreateAIScenario}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                      >
+                        <ArrowRight size={18} className="mr-2" /> Create AI Scenarios
+                      </button>
                       <button
                         onClick={handleCreateOwnScenario}
-                        className="flex-1 bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition-colors flex items-center justify-center"
+                        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center"
                       >
-                        <span className="mr-2">Create Your Own Scenario</span> <ArrowRight size={16} />
+                        <ArrowRight size={18} className="mr-2" /> Create My Own Scenario
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {showAIScenarioOptions && (
+                  <div className="mt-6">
+                    {isLoading ? (
+                      <p>Generating AI scenarios...</p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {scenarios.map(scenario => (
+                          <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} onClose={onClose} />
+                        ))}
+                      </div>
                     )}
                   </div>
-                </div>
+                )}
+
+                {userScenarios.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="text-lg font-semibold mb-2">My Scenarios</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {userScenarios.map(scenario => (
+                        <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} onClose={onClose} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
+          </div>
+
+          {/* Modal footer */}
+          <div className="p-4 bg-gray-100 border-t flex justify-end">
+            <button
+              onClick={onClose}
+              className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors"
+            >
+              Close
+            </button>
           </div>
         </motion.div>
       </motion.div>

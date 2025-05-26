@@ -141,6 +141,12 @@ export const useTimelineStore = create<TimelineState>()(
         const branchPointEvent = parentBranch.events.find(
           event => event.id === branchPointEventId
         );
+
+        // we need to save the new scenario to the current event id
+        // if the event id is not in the alternative scenarios, add it
+        if (!get().timelineData.alternativeScenarios[branchPointEventId]) {
+          get().addAlternativeScenarios(branchPointEventId, [scenario]);
+        }
         
         if (!branchPointEvent) {
           console.error("createNewBranch: Branch point event not found", branchPointEventId);
@@ -246,33 +252,43 @@ export const useTimelineStore = create<TimelineState>()(
         return null;
       },
       
-      getAlternativeScenariosForEvent: (eventId) => {
-        const { timelineData } = get();
+      getAlternativeScenariosForEvent: (eventId: string) => {
+        const { timelineData } = get(); 
+        console.log('getAlternativeScenariosForEvent: ', timelineData, eventId);
+        
         return timelineData.alternativeScenarios[eventId] || [];
       },
 
-      addAlternativeScenarios: (eventId, scenarios) => set((state) => ({
-        timelineData: {
-          ...state.timelineData,
-          alternativeScenarios: {
-            ...state.timelineData.alternativeScenarios,
-            [eventId]: [...(state.timelineData.alternativeScenarios[eventId] || []), ...scenarios],
-          },
-        },
-      })),
+      addAlternativeScenarios: (eventId: string, scenarios: AlternativeScenario[]) => {
+        set((state) => {
+          console.log('update: ', state);
+          return ({
+            timelineData: {
+              ...state.timelineData,
+              alternativeScenarios: {
+                ...state.timelineData.alternativeScenarios,
+                [eventId]: [
+                  ...(state.timelineData.alternativeScenarios[eventId] || []),
+                  ...scenarios,
+                ],
+              },
+            },
+          })
+        });
+      },
 
-      
-      resetTimeline: () => set({
-        timelineData: initialTimelineData,
-        selectedBranchId: initialTimelineData.mainBranch.id,
-        selectedEventId: null,
-        visibleBranchIds: [initialTimelineData.mainBranch.id],
-        filter: {},
-        zoomLevel: 'decade',
-      }),
+      resetTimeline: () => set({ timelineData: initialTimelineData }),
     }),
     {
       name: 'timeline-storage',
+      // Optionally, add a version to your storage
+      version: 1,
+      // You can specify which parts of the state to store
+      partialize: (state) => ({
+        timelineData: state.timelineData,
+        selectedBranchId: state.selectedBranchId,
+        visibleBranchIds: state.visibleBranchIds,
+      }),
     }
   )
 );

@@ -7,20 +7,20 @@ interface ScenarioCardProps {
   scenario: AlternativeScenario;
   eventId: string;
   branchId: string;
+  onClose: () => void; // Add onClose to props
   isUserCreated?: boolean;
   onUpdateScenario?: (scenario: AlternativeScenario) => void;
   onDeleteScenario?: () => void;
-  onClose?: () => void;
 }
 
 const ScenarioCard: React.FC<ScenarioCardProps> = ({
   scenario,
   eventId,
   branchId,
+  onClose, // Destructure onClose
   isUserCreated = false,
   onUpdateScenario,
   onDeleteScenario,
-  onClose
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCreatingBranch, setIsCreatingBranch] = useState(false);
@@ -43,22 +43,38 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
 
   const handleCreateBranch = () => {
     const newBranchId = createNewBranch(
-      editedTitle, // Use editedTitle for branch name
-      editedConsequences, // Use editedConsequences for branch description
+      editedTitle,
+      editedConsequences,
       branchId,
       eventId,
       scenario
     );
 
+    console.log('new branch created: ', 
+      {
+        'newBranchId': newBranchId, 
+        'editedTitle': editedTitle,
+        'editedConsequences': editedConsequences,
+        'branchId': branchId,
+        'eventId': eventId,
+        'scenario': scenario
+      }
+    );
+
     if (newBranchId) {
       // Call onClose if it's passed as a prop to close the modal
       if (onClose) {
-        onClose();
+        // onClose();
       }
     }
   };
 
-  const handleEdit = (e: React.MouseEvent) => {
+  const handleSelectScenario = () => {
+    createNewBranch(scenario.title, scenario.description, branchId, eventId, scenario);
+    onClose(); // Close the modal after creating a new branch
+  };
+
+  const handleEdit = () => {
     e.stopPropagation();
     setIsEditing(true);
     setIsExpanded(true);
