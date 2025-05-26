@@ -46,6 +46,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, branchId, onClose }) => 
         imageUrl: '',
       };
       setUserScenarios(prev => [...prev, newScenario]);
+      addAlternativeScenariosToStore(event.id, [newScenario]);
     }
   };
 
@@ -151,11 +152,11 @@ Example format:
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: 'spring', damping: 25 }}
-          className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden relative"
+          className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto relative flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modal header with image */}
-          <div className="relative h-64">
+          <div className="relative h-64 flex-shrink-0">
             {event.imageUrl ? (
               <img
                 src={event.imageUrl}
@@ -251,6 +252,14 @@ Example format:
                     {alternativeScenarios.map(scenario => (
                       <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} onClose={onClose} />
                     ))}
+                    {alternativeScenarios.length < 5 && (
+                      <button
+                        onClick={handleCreateOwnScenario}
+                        className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                      >
+                        <span>Add Own Scenario</span>
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
@@ -258,16 +267,18 @@ Example format:
                     <div className="flex space-x-4">
                       <button
                         onClick={handleCreateAIScenario}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                        className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
                       >
-                        <ArrowRight size={18} className="mr-2" /> Create AI Scenarios
+                        <span>Generate AI Scenarios</span>
                       </button>
-                      <button
-                        onClick={handleCreateOwnScenario}
-                        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center"
-                      >
-                        <ArrowRight size={18} className="mr-2" /> Create My Own Scenario
-                      </button>
+                      {view === 'scenarios' && (userScenarios.length < 5) && (
+                        <button
+                          onClick={handleCreateOwnScenario}
+                          className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                        >
+                          <span>Add Own Scenario</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

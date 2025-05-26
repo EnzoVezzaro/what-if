@@ -136,7 +136,7 @@ export const useTimelineStore = create<TimelineState>()(
           console.error("createNewBranch: Parent branch not found", parentBranchId);
           return '';
         }
-        
+
         // Find the branch point event
         const branchPointEvent = parentBranch.events.find(
           event => event.id === branchPointEventId
@@ -144,8 +144,17 @@ export const useTimelineStore = create<TimelineState>()(
 
         // we need to save the new scenario to the current event id
         // if the event id is not in the alternative scenarios, add it
+        console.log('here: ', branchPointEvent);
+        
         if (!get().timelineData.alternativeScenarios[branchPointEventId]) {
-          get().addAlternativeScenarios(branchPointEventId, [scenario]);
+          get().addAlternativeScenarios(branchPointEventId, [{
+            id: scenario.id,
+            parentEventId: branchPointEventId,
+            consequences: description,
+            title: name,
+            description,
+            imageUrl: 'T/D',
+          }]);
         }
         
         if (!branchPointEvent) {
@@ -254,7 +263,7 @@ export const useTimelineStore = create<TimelineState>()(
       
       getAlternativeScenariosForEvent: (eventId: string) => {
         const { timelineData } = get(); 
-        console.log('getAlternativeScenariosForEvent: ', timelineData, eventId);
+        // console.log('getAlternativeScenariosForEvent: ', timelineData, eventId);
         
         return timelineData.alternativeScenarios[eventId] || [];
       },
