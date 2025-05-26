@@ -34,6 +34,8 @@ interface TimelineState {
   getBranchById: (branchId: string) => TimelineBranch | undefined;
   getEventById: (eventId: string) => TimelineEvent | null;
   getAlternativeScenariosForEvent: (eventId: string) => AlternativeScenario[];
+  addAlternativeScenarios: (eventId: string, scenarios: AlternativeScenario[]) => void;
+
   resetTimeline: () => void;
 }
 
@@ -130,21 +132,30 @@ export const useTimelineStore = create<TimelineState>()(
       
       createNewBranch: (name, description, parentBranchId, branchPointEventId, alternativeScenarioId) => {
         const parentBranch = get().getBranchById(parentBranchId);
-        if (!parentBranch) return '';
+        if (!parentBranch) {
+          console.error("createNewBranch: Parent branch not found", parentBranchId);
+          return '';
+        }
         
         // Find the branch point event
         const branchPointEvent = parentBranch.events.find(
           event => event.id === branchPointEventId
         );
         
-        if (!branchPointEvent) return '';
+        if (!branchPointEvent) {
+          console.error("createNewBranch: Branch point event not found", branchPointEventId);
+          return '';
+        }
         
         // Get the selected scenario
         const scenario = get().timelineData.alternativeScenarios[branchPointEventId]?.find(
           s => s.id === alternativeScenarioId
         );
         
-        if (!scenario) return '';
+        if (!scenario) {
+          console.error("createNewBranch: Scenario not found", alternativeScenarioId, "for event", branchPointEventId, "Available scenarios:", get().timelineData.alternativeScenarios[branchPointEventId]);
+          return '';
+        }
         
         // Generate new events for this timeline branch
         const newEvents = generateNewEvents(branchPointEvent, scenario);
@@ -249,6 +260,17 @@ export const useTimelineStore = create<TimelineState>()(
         const { timelineData } = get();
         return timelineData.alternativeScenarios[eventId] || [];
       },
+
+      addAlternativeScenarios: (eventId, scenarios) => set((state) => ({
+        timelineData: {
+          ...state.timelineData,
+          alternativeScenarios: {
+            ...state.timelineData.alternativeScenarios,
+            [eventId]: [...(state.timelineData.alternativeScenarios[eventId] || []), ...scenarios],
+          },
+        },
+      })),
+
       
       resetTimeline: () => set({
         timelineData: initialTimelineData,

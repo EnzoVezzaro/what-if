@@ -4,6 +4,9 @@ import { X, MapPin, Tag, Calendar, ArrowRight } from 'lucide-react';
 import { TimelineEvent, AlternativeScenario } from '../../types';
 import { useTimelineStore } from '../../store/timelineStore';
 import ScenarioCard from './ScenarioCard';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { z } from 'zod';
+import { generateObject } from 'ai';
 
 interface EventModalProps {
   event: TimelineEvent;
@@ -13,8 +16,98 @@ interface EventModalProps {
 
 const EventModal: React.FC<EventModalProps> = ({ event, branchId, onClose }) => {
   const [view, setView] = useState<'details' | 'scenarios'>(event.isBranchPoint ? 'details' : 'details');
+  const [showAIScenarioOptions, setShowAIScenarioOptions] = useState(false);
   const alternativeScenarios = useTimelineStore(state => state.getAlternativeScenariosForEvent(event.id));
+  const addAlternativeScenariosToStore = useTimelineStore(state => state.addAlternativeScenarios);
   
+  const handleCreateAIScenario = () => {
+    setShowAIScenarioOptions(true);
+    generateAIScenarios();
+  };
+
+  const handleCreateOwnScenario = () => {
+    // Logic for creating own scenario
+    console.log('Create your own scenario clicked');
+  };
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [scenarios, setScenarios] = useState<AlternativeScenario[]>([]);
+
+  const generateAIScenarios = async () => {
+    setIsLoading(true);
+    try {
+      const schema = z.array(
+        z.object({
+          title: z.string(),
+          description: z.string(),
+          consequences: z.string(),
+          imageUrl: z.string()
+        })
+      );
+      
+      const prompt = `Generate 5 alternative scenarios for the historical event: "${event.title}" which occurred on ${formatDate(event.date)} in ${event.region || 'an unspecified region'}. Description: ${event.description}
+
+Return the scenarios as an array where each scenario has these properties:
+- title: string
+- description: string
+- consequences: string
+- imageUrl: string
+
+Example format:
+[
+  {
+    "title": "Scenario 1",
+    "description": "Description 1",
+    "consequences": "Consequences 1",
+    "imageUrl": "url1"
+  }
+]`;
+      const google = createGoogleGenerativeAI({
+        apiKey: import.meta.env.VITE_GEMINI_API_KEY,
+      });
+
+      const result = await generateObject({
+        model: google('gemini-2.0-flash', {
+          structuredOutputs: true,
+        }),
+        schema: schema,
+        prompt: prompt,
+      });
+      const response = await result.response;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseData = response.body as any;
+      console.log('AI response:', responseData);
+  
+      // Extract the scenarios array from the nested response structure
+      let scenariosText = '';
+      if (responseData?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        try {
+          scenariosText = responseData.candidates[0].content.parts[0].text;
+          const parsedScenarios = JSON.parse(scenariosText);
+          const validatedScenarios = schema.parse(parsedScenarios);
+          // Add unique IDs to scenarios
+          const scenariosWithIds = validatedScenarios.map((scenario, index) => ({
+            ...scenario,
+            id: `ai-scenario-${Date.now()}-${index}`
+          }));
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setScenarios(scenariosWithIds as any);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          addAlternativeScenariosToStore(event.id, scenariosWithIds as any);
+        } catch (error) {
+          console.error('Error parsing scenarios:', error);
+          throw error;
+        }
+      } else {
+        throw new Error('Invalid response structure from Gemini API');
+      }
+    } catch (error) {
+      console.error('Error generating scenarios:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Format date for display
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -133,18 +226,52 @@ const EventModal: React.FC<EventModalProps> = ({ event, branchId, onClose }) => 
                 <p className="text-gray-600 mb-6">
                   Select an alternative scenario to explore a different timeline branching from this event.
                 </p>
-                
-                <div className="space-y-4">
-                  {alternativeScenarios.map(scenario => (
-                    <ScenarioCard
-                      key={scenario.id}
-                      scenario={scenario}
-                      event={event}
-                      branchId={branchId}
-                      onClose={onClose}
-                    />
-                  ))}
-                </div>
+                {!showAIScenarioOptions ? (
+                  <div className="flex flex-col space-y-4">
+                    <button
+                      onClick={handleCreateAIScenario}
+                      className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-semibold"
+                    >
+                      <span>Create Alternative Scenario with AI</span>
+                    </button>
+                    <button
+                      onClick={handleCreateOwnScenario}
+                      className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-lg font-semibold"
+                    >
+                      <span>Create Your Own</span>
+                    </button>
+                  </div>
+                ) : showAIScenarioOptions ? (
+                  <div>
+                    <h3 className="text-xl font-semibold mb-4">AI-Generated Scenario Options</h3>
+                    {isLoading && <p>Generating 5 alternative scenarios...</p>}
+                    {!isLoading && scenarios.length > 0 && (
+                      <div className="space-y-4">
+                        {scenarios.map((scenario: AlternativeScenario) => (
+                          <ScenarioCard
+                            key={scenario.id}
+                            scenario={scenario}
+                            event={event}
+                            branchId={branchId}
+                            onClose={onClose}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {alternativeScenarios.map(scenario => (
+                      <ScenarioCard
+                        key={scenario.id}
+                        scenario={scenario}
+                        event={event}
+                        branchId={branchId}
+                        onClose={onClose}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
