@@ -52,4 +52,4 @@ export type TimelineFilter = {
   endYear?: number;
 };
 
-export type TimelineZoomLevel = 'century' | 'decade' | 'year' | 'month';
+export type TimelineZoomLevel = 'fit' | 'century' | 'decade' | 'year' | 'month';

@@ -1,26 +1,80 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { useTimelineStore } from '../../store/timelineStore';
 import TimelineEvent from './TimelineEvent';
-import { TimelineEvent as TimelineEventType, TimelineBranch } from '../../types';
+import { TimelineEvent as TimelineEventType, TimelineBranch, TimelineZoomLevel } from '../../types';
 
 const Timeline: React.FC = () => {
   const timelineData = useTimelineStore(state => state.timelineData);
   const visibleBranches = useTimelineStore(state => state.getVisibleBranches);
+  const removeVisibleBranch = useTimelineStore(state => state.removeVisibleBranch);
+  const visibleBranchIds = useTimelineStore(state => state.visibleBranchIds); // Select visibleBranchIds to trigger re-renders
   const filter = useTimelineStore(state => state.filter);
   const zoomLevel = useTimelineStore(state => state.zoomLevel);
   const setZoomLevel = useTimelineStore(state => state.setZoomLevel);
 
+  const timelineContainerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
-  const [scrollPosition, setScrollPosition] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
 
-  // Timeline width constants
-  const eventSpacing = {
-    century: 200,
-    decade: 400,
-    year: 800,
-    month: 1200,
-  };
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (timelineContainerRef.current) {
+        setContainerWidth(timelineContainerRef.current.clientWidth);
+      }
+    };
+
+    const timelineContainerElement = timelineContainerRef.current;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (timelineContainerElement) {
+        setIsDragging(true);
+        setStartX(e.pageX - timelineContainerElement.offsetLeft);
+        setScrollLeft(timelineContainerElement.scrollLeft);
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !timelineContainerElement) return;
+      e.preventDefault();
+      const x = e.pageX - timelineContainerElement.offsetLeft;
+      const walk = (x - startX); // The distance the user has dragged
+
+      requestAnimationFrame(() => {
+        timelineContainerElement.scrollLeft = scrollLeft - walk;
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (timelineContainerElement) {
+      handleResize(); // Set initial width
+      window.addEventListener('resize', handleResize);
+      timelineContainerElement.addEventListener('mousedown', handleMouseDown);
+      timelineContainerElement.addEventListener('mousemove', handleMouseMove);
+      timelineContainerElement.addEventListener('mouseup', handleMouseUp);
+      // Add mouseup listener to window to stop dragging if mouse is released outside the container
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+
+    return () => {
+      if (timelineContainerElement) {
+        window.removeEventListener('resize', handleResize);
+        timelineContainerElement.removeEventListener('mousedown', handleMouseDown);
+        timelineContainerElement.removeEventListener('mousemove', handleMouseMove);
+        timelineContainerElement.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('mouseup', handleMouseUp);
+      }
+    };
+  }, [isDragging, startX, scrollLeft]);
+
 
   // Apply filters to events
   const filterEvents = (events: TimelineEventType[]) => {
@@ -48,25 +102,45 @@ const Timeline: React.FC = () => {
   const minYear = allYears.length > 0 ? Math.min(...allYears) : 1900;
   const maxYear = allYears.length > 0 ? Math.max(...allYears) : 2025;
 
+  // Timeline width constants
+  const eventSpacing = {
+    century: 200,
+    decade: 400,
+    year: 800,
+    month: 1200,
+  };
+
+  // Calculate required spacing for 'fit' zoom level
+  const fitSpacing = useMemo(() => {
+    const yearRange = maxYear - minYear;
+    if (yearRange <= 0 || containerWidth <= 0) return 100; // Default spacing
+    // Calculate spacing needed to fit the entire range within the container width
+    // timelineWidth = yearRange * spacing / 10
+    // containerWidth = yearRange * spacing / 10
+    // spacing = (containerWidth * 10) / yearRange
+    return (containerWidth * 10) / yearRange;
+  }, [minYear, maxYear, containerWidth]);
+
   // Calculate timeline width based on year range and zoom level
   const calculateTimelineWidth = () => {
     const yearRange = maxYear - minYear;
-    const spacing = eventSpacing[zoomLevel];
+    const spacing = zoomLevel === 'fit' ? fitSpacing : eventSpacing[zoomLevel];
     return yearRange * spacing / 10;
   };
 
   const timelineWidth = calculateTimelineWidth();
 
+
   // Handle scrolling controls
   const handleScroll = (direction: 'left' | 'right') => {
-    if (!timelineRef.current) return;
+    if (!timelineContainerRef.current) return;
 
-    const scrollAmount = timelineRef.current.clientWidth * 0.8;
+    const scrollAmount = timelineContainerRef.current.clientWidth * 0.8;
     const newPosition = direction === 'left'
-      ? scrollPosition - scrollAmount
-      : scrollPosition + scrollAmount;
+      ? timelineContainerRef.current.scrollLeft - scrollAmount
+      : timelineContainerRef.current.scrollLeft + scrollAmount;
 
-    timelineRef.current.scrollTo({
+    timelineContainerRef.current.scrollTo({
       left: newPosition,
       behavior: 'smooth'
     });
@@ -75,24 +149,37 @@ const Timeline: React.FC = () => {
   // Update scroll position when timeline scrolls
   useEffect(() => {
     const handleScrollEvent = () => {
-      if (timelineRef.current) {
-        setScrollPosition(timelineRef.current.scrollLeft);
+      if (timelineContainerRef.current) {
+        // setScrollPosition(timelineContainerRef.current.scrollLeft); // scrollPosition state is not used
       }
     };
 
-    const timelineElement = timelineRef.current;
-    if (timelineElement) {
-      timelineElement.addEventListener('scroll', handleScrollEvent);
+    const timelineContainerElement = timelineContainerRef.current;
+    if (timelineContainerElement) {
+      timelineContainerElement.addEventListener('scroll', handleScrollEvent);
       return () => {
-        timelineElement.removeEventListener('scroll', handleScrollEvent);
+        timelineContainerElement.removeEventListener('scroll', handleScrollEvent);
       };
     }
   }, []);
 
-  // Handle zoom level changes
-  const changeZoomLevel = (level: 'century' | 'decade' | 'year' | 'month') => {
-    setZoomLevel(level);
+  // Cycle through zoom levels
+  const zoomLevels: TimelineZoomLevel[] = ['fit', 'century', 'decade', 'year', 'month'];
+
+  const zoomIn = () => {
+    const currentIndex = zoomLevels.indexOf(zoomLevel);
+    if (currentIndex < zoomLevels.length - 1) {
+      setZoomLevel(zoomLevels[currentIndex + 1]);
+    }
   };
+
+  const zoomOut = () => {
+    const currentIndex = zoomLevels.indexOf(zoomLevel);
+    if (currentIndex > 0) {
+      setZoomLevel(zoomLevels[currentIndex - 1]);
+    }
+  };
+
 
   // Calculate position for an event based on its year and the timeline scale
   const calculateEventPosition = (year: number) => {
@@ -122,6 +209,9 @@ const Timeline: React.FC = () => {
         break;
       case 'month':
         step = 1;
+        break;
+      case 'fit':
+        step = Math.max(1, Math.floor((maxYear - minYear) / 10)); // Adjust step for 'fit' view
         break;
     }
 
@@ -179,7 +269,7 @@ const Timeline: React.FC = () => {
       const parentBranch = findBranchByEventId(branch.branchPointEventId);
 
 
-      if (branchPointEvent && parentBranch) {
+      if (branchPointEvent && parentBranch && branch && branch.events && branch.events.length > 0) {
         // Calculate positions
         const branchPointX = calculateEventPosition(branchPointEvent.year);
         const branchPointY = getBranchVerticalPosition(
@@ -248,30 +338,16 @@ const Timeline: React.FC = () => {
       {/* Zoom controls */}
       <div className="absolute top-4 right-4 z-10 flex items-center bg-white rounded-full shadow-md">
         <button
-          onClick={() => changeZoomLevel('century')}
-          className={`p-2 rounded-l-full ${zoomLevel === 'century' ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-100'}`}
-          aria-label="Century view"
+          onClick={zoomOut}
+          className={`p-2 rounded-l-full ${zoomLevel === 'fit' ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-100'}`}
+          aria-label="Zoom Out"
         >
-          <Calendar size={18} />
+          <ZoomOut size={18} />
         </button>
         <button
-          onClick={() => changeZoomLevel('decade')}
-          className={`p-2 ${zoomLevel === 'decade' ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-100'}`}
-          aria-label="Decade view"
-        >
-        <ZoomOut size={18} />
-        </button>
-        <button
-          onClick={() => changeZoomLevel('year')}
-          className={`p-2 ${zoomLevel === 'year' ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-100'}`}
-          aria-label="Year view"
-        >
-          <ZoomIn size={18} />
-        </button>
-        <button
-          onClick={() => changeZoomLevel('month')}
+          onClick={zoomIn}
           className={`p-2 rounded-r-full ${zoomLevel === 'month' ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-100'}`}
-          aria-label="Month view"
+          aria-label="Zoom In"
         >
           <ZoomIn size={20} />
         </button>
@@ -279,10 +355,12 @@ const Timeline: React.FC = () => {
 
       {/* Timeline content */}
       <div
-        ref={timelineRef}
+        ref={timelineContainerRef}
         className="flex-1 overflow-x-auto overflow-y-auto relative"
+        onDoubleClick={zoomIn}
       >
         <div
+          ref={timelineRef}
           className="relative h-full"
           style={{ width: `${timelineWidth}px`, minHeight: '400px' }}
         >
@@ -307,16 +385,25 @@ const Timeline: React.FC = () => {
                   }}
                 ></div>
 
-                {/* Branch label */}
+                {/* Branch label and hide button */}
                 <div
-                  className="absolute font-medium text-sm"
+                  className="absolute font-medium text-sm flex items-center space-x-2"
                   style={{
                     top: `${verticalPosition - 20}px`,
                     left: '10px',
                     color: branch.color
                   }}
                 >
-                  {branch.name}
+                  <span>{branch.name}</span>
+                  {branch.id !== timelineData.mainBranch.id && ( // Don't show hide button for main branch
+                    <button
+                      onClick={() => removeVisibleBranch(branch.id)}
+                      className="text-gray-500 hover:text-gray-700 text-xs"
+                      aria-label={`Hide branch ${branch.name}`}
+                    >
+                      Hide
+                    </button>
+                  )}
                 </div>
 
                 {/* Branch events */}
