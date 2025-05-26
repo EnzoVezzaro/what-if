@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { AlternativeScenario } from '../../types';
 import { useTimelineStore } from '../../store/timelineStore';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, Loader2 } from 'lucide-react';
 
 interface ScenarioCardProps {
   scenario: AlternativeScenario;
@@ -23,6 +23,7 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
   const [editedTitle, setEditedTitle] = useState(scenario.title);
   const [editedDescription, setEditedDescription] = useState(scenario.description);
   const [editedConsequences, setEditedConsequences] = useState(scenario.consequences);
+  const [isLoading, setIsLoading] = useState(false);
 
   const createNewBranch = useTimelineStore(state => state.createNewBranch);
   const updateAlternativeScenario = useTimelineStore(state => state.updateAlternativeScenario);
@@ -38,8 +39,9 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
     setIsCreatingBranch(true);
   };
 
-  const handleCreateBranch = async () => { // Make function async
-    const newBranchId = await createNewBranch( // Await the promise
+  const handleCreateBranch = async () => {
+    setIsLoading(true); // Set loading to true
+    const newBranchId = await createNewBranch(
       editedTitle,
       editedConsequences,
       branchId,
@@ -47,9 +49,10 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
       scenario
     );
 
-    if (newBranchId) { // Check the awaited string
-      onClose(); // Close the modal after creating a new branch
+    if (newBranchId) {
+      onClose();
     }
+    setIsLoading(false); // Set loading to false
   };
 
   const handleEdit = (e: React.MouseEvent) => {
@@ -194,13 +197,19 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
               <div className="flex space-x-3">
                 <button
                   onClick={handleCreateBranch}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  disabled={isLoading} // Disable button when loading
                 >
-                  Create Timeline
+                  {isLoading ? (
+                    <Loader2 className="animate-spin mr-2" size={20} />
+                  ) : (
+                    'Create Timeline'
+                  )}
                 </button>
                 <button
                   onClick={() => setIsCreatingBranch(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading} // Disable cancel button when loading
                 >
                   Cancel
                 </button>
