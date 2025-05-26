@@ -8,6 +8,7 @@ export interface TimelineEvent {
   category: string; // e.g., 'war', 'technology', 'politics'
   region?: string; // e.g., 'Europe', 'North America'
   year: number; // For easier sorting and filtering
+  outcomes?: string[]; // Potential outcomes of the event
 }
 
 export interface AlternativeScenario {

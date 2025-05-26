@@ -1,26 +1,21 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { TimelineEvent, AlternativeScenario } from '../../types';
+import { AlternativeScenario } from '../../types';
 import { useTimelineStore } from '../../store/timelineStore';
+import { Edit, Trash2 } from 'lucide-react';
 
 interface ScenarioCardProps {
   scenario: AlternativeScenario;
   eventId: string;
   branchId: string;
-  onClose: () => void; // Add onClose to props
-  isUserCreated?: boolean;
-  onUpdateScenario?: (scenario: AlternativeScenario) => void;
-  onDeleteScenario?: () => void;
+  onClose: () => void;
 }
 
 const ScenarioCard: React.FC<ScenarioCardProps> = ({
   scenario,
   eventId,
   branchId,
-  onClose, // Destructure onClose
-  isUserCreated = false,
-  onUpdateScenario,
-  onDeleteScenario,
+  onClose,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCreatingBranch, setIsCreatingBranch] = useState(false);
@@ -30,6 +25,8 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
   const [editedConsequences, setEditedConsequences] = useState(scenario.consequences);
 
   const createNewBranch = useTimelineStore(state => state.createNewBranch);
+  const updateAlternativeScenario = useTimelineStore(state => state.updateAlternativeScenario);
+  const deleteAlternativeScenario = useTimelineStore(state => state.deleteAlternativeScenario);
 
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
@@ -50,77 +47,49 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
       scenario
     );
 
-    console.log('new branch created: ', 
-      {
-        'newBranchId': newBranchId, 
-        'editedTitle': editedTitle,
-        'editedConsequences': editedConsequences,
-        'branchId': branchId,
-        'eventId': eventId,
-        'scenario': scenario
-      }
-    );
-
     if (newBranchId) {
-      // Call onClose if it's passed as a prop to close the modal
-      if (onClose) {
-        // onClose();
-      }
+      onClose(); // Close the modal after creating a new branch
     }
   };
 
-  const handleSelectScenario = () => {
-    createNewBranch(scenario.title, scenario.description, branchId, eventId, scenario);
-    onClose(); // Close the modal after creating a new branch
-  };
-
-  const handleEdit = () => {
+  const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsEditing(true);
     setIsExpanded(true);
   };
 
   const handleSaveEdit = () => {
-    if (onUpdateScenario) {
-      onUpdateScenario({
-        ...scenario,
-        title: editedTitle,
-        description: editedDescription,
-        consequences: editedConsequences,
-      });
-    }
+    updateAlternativeScenario(eventId, scenario.id, {
+      title: editedTitle,
+      description: editedDescription,
+      consequences: editedConsequences,
+    });
     setIsEditing(false);
-    // Call onClose if it's passed as a prop to close the modal
-    if (onClose) {
-      onClose();
-    }
   };
 
   const handleDelete = () => {
-    if (onDeleteScenario) {
-      onDeleteScenario();
-    }
+    deleteAlternativeScenario(eventId, scenario.id);
   };
-  
+
   return (
     <motion.div
       layout
       className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
     >
-      <div 
+      <div
         className="flex cursor-pointer"
         onClick={toggleExpand}
       >
         {scenario.imageUrl && (
           <div className="w-24 h-24 md:w-32 md:h-32 flex-shrink-0">
-            <img 
-              src={scenario.imageUrl} 
+            <img
+              src={scenario.imageUrl}
               alt={scenario.title}
               className="w-full h-full object-cover"
             />
           </div>
         )}
-        
+
         <div className="p-4 flex flex-col flex-1">
           <h3 className="font-medium text-lg">{editedTitle}</h3>
           <p className="text-gray-600 text-sm line-clamp-2 mt-1">
@@ -134,14 +103,6 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
                 className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors text-sm"
               >
                 Explore This Timeline
-              </button>
-            )}
-            {isUserCreated && !isExpanded && (
-              <button
-                onClick={handleEdit}
-                className="mt-2 px-3 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors text-sm"
-              >
-                Edit
               </button>
             )}
           </div>
@@ -202,14 +163,6 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
                 >
                   Cancel
                 </button>
-                {isUserCreated && (
-                  <button
-                    onClick={handleDelete}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                  >
-                    Delete
-                  </button>
-                )}
               </div>
             </div>
           ) : isCreatingBranch ? (
@@ -256,12 +209,28 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
           ) : (
             <>
               <p className="text-gray-700 mb-4">{editedConsequences}</p>
-              <button
-                onClick={startBranchCreation}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Explore This Timeline
-              </button>
+              <div className="flex space-x-2">
+                <button
+                  onClick={startBranchCreation}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Explore This Timeline
+                </button>
+                <button
+                  onClick={handleEdit}
+                  className="p-2 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+                  aria-label="Edit scenario"
+                >
+                  <Edit size={18} />
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="p-2 rounded-md bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                  aria-label="Delete scenario"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </>
           )}
         </motion.div>

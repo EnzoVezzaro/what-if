@@ -35,6 +35,8 @@ interface TimelineState {
   getEventById: (eventId: string) => TimelineEvent | null;
   getAlternativeScenariosForEvent: (eventId: string) => AlternativeScenario[];
   addAlternativeScenarios: (eventId: string, scenarios: AlternativeScenario[]) => void;
+  updateAlternativeScenario: (eventId: string, scenarioId: string, updatedScenario: Partial<AlternativeScenario>) => void;
+  deleteAlternativeScenario: (eventId: string, scenarioId: string) => void;
 
   resetTimeline: () => void;
 }
@@ -269,21 +271,44 @@ export const useTimelineStore = create<TimelineState>()(
       },
 
       addAlternativeScenarios: (eventId: string, scenarios: AlternativeScenario[]) => {
-        set((state) => {
-          console.log('update: ', state);
-          return ({
-            timelineData: {
-              ...state.timelineData,
-              alternativeScenarios: {
-                ...state.timelineData.alternativeScenarios,
-                [eventId]: [
-                  ...(state.timelineData.alternativeScenarios[eventId] || []),
-                  ...scenarios,
-                ],
-              },
+        set((state) => ({
+          timelineData: {
+            ...state.timelineData,
+            alternativeScenarios: {
+              ...state.timelineData.alternativeScenarios,
+              [eventId]: [
+                ...(state.timelineData.alternativeScenarios[eventId] || []),
+                ...scenarios,
+              ],
             },
-          })
-        });
+          },
+        }));
+      },
+
+      updateAlternativeScenario: (eventId: string, scenarioId: string, updatedScenario: Partial<AlternativeScenario>) => {
+        set((state) => ({
+          timelineData: {
+            ...state.timelineData,
+            alternativeScenarios: {
+              ...state.timelineData.alternativeScenarios,
+              [eventId]: (state.timelineData.alternativeScenarios[eventId] || []).map(scenario =>
+                scenario.id === scenarioId ? { ...scenario, ...updatedScenario } : scenario
+              ),
+            },
+          },
+        }));
+      },
+
+      deleteAlternativeScenario: (eventId: string, scenarioId: string) => {
+        set((state) => ({
+          timelineData: {
+            ...state.timelineData,
+            alternativeScenarios: {
+              ...state.timelineData.alternativeScenarios,
+              [eventId]: (state.timelineData.alternativeScenarios[eventId] || []).filter(scenario => scenario.id !== scenarioId),
+            },
+          },
+        }));
       },
 
       resetTimeline: () => set({ timelineData: initialTimelineData }),

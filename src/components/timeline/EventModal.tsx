@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Tag, Calendar, ArrowRight } from 'lucide-react';
+import { X, MapPin, Tag, Calendar } from 'lucide-react';
 import { TimelineEvent, AlternativeScenario } from '../../types';
 import { useTimelineStore } from '../../store/timelineStore';
 import ScenarioCard from './ScenarioCard';
@@ -16,42 +16,43 @@ interface EventModalProps {
 
 const EventModal: React.FC<EventModalProps> = ({ event, branchId, onClose }) => {
   const alternativeScenarios = useTimelineStore(state => state.getAlternativeScenariosForEvent(event.id));
+  const addAlternativeScenariosToStore = useTimelineStore(state => state.addAlternativeScenarios);
 
-  console.log('alternativeScenarios:', alternativeScenarios, event.id);
-  
   const [view, setView] = useState<'details' | 'scenarios'>(alternativeScenarios.length > 0 ? 'scenarios' : 'details');
-  
+  const [isLoading, setIsLoading] = useState(false);
+  const [newScenario, setNewScenario] = useState<AlternativeScenario | null>(null);
+
   useEffect(() => {
     if (alternativeScenarios.length > 0) {
       setView('scenarios');
     }
   }, [alternativeScenarios]);
 
-  const [showAIScenarioOptions, setShowAIScenarioOptions] = useState(false);
-  const addAlternativeScenariosToStore = useTimelineStore(state => state.addAlternativeScenarios);
-  const [userScenarios, setUserScenarios] = useState<AlternativeScenario[]>([]);
-
   const handleCreateAIScenario = () => {
-    setShowAIScenarioOptions(true);
     generateAIScenarios();
   };
 
   const handleCreateOwnScenario = () => {
-    if (userScenarios.length < 5) {
-      const newScenario: AlternativeScenario = {
-        id: `user-scenario-${Date.now()}`,
-        title: 'New Scenario',
-        description: 'Click to edit',
-        consequences: 'Click to edit',
-        imageUrl: '',
-      };
-      setUserScenarios(prev => [...prev, newScenario]);
+    setNewScenario({
+      id: `user-scenario-${Date.now()}`,
+      title: 'New Scenario',
+      description: '',
+      consequences: '',
+      imageUrl: '',
+      parentEventId: event.id,
+    });
+  };
+
+  const handleSaveNewScenario = () => {
+    if (newScenario) {
       addAlternativeScenariosToStore(event.id, [newScenario]);
+      setNewScenario(null); // Clear the new scenario state
     }
   };
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [scenarios, setScenarios] = useState<AlternativeScenario[]>([]);
+  const handleCancelNewScenario = () => {
+    setNewScenario(null); // Discard the new scenario
+  };
 
   const generateAIScenarios = async () => {
     setIsLoading(true);
@@ -64,7 +65,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, branchId, onClose }) => 
           imageUrl: z.string()
         })
       );
-      
+
       const prompt = `Generate 5 alternative scenarios for the historical event: "${event.title}" which occurred on ${formatDate(event.date)} in ${event.region || 'an unspecified region'}. Description: ${event.description}
 
 Return the scenarios as an array where each scenario has these properties:
@@ -96,8 +97,7 @@ Example format:
       const response = await result.response;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const responseData = response.body as any;
-      console.log('AI response:', responseData);
-  
+
       // Extract the scenarios array from the nested response structure
       let scenariosText = '';
       if (responseData?.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -110,8 +110,6 @@ Example format:
             ...scenario,
             id: `ai-scenario-${Date.now()}-${index}`
           }));
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setScenarios(scenariosWithIds as any);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           addAlternativeScenariosToStore(event.id, scenariosWithIds as any);
         } catch (error) {
@@ -137,7 +135,7 @@ Example format:
       day: 'numeric'
     });
   };
-  
+
   return (
     <AnimatePresence>
       <motion.div
@@ -168,7 +166,7 @@ Example format:
                 <span className="text-gray-400">No image available</span>
               </div>
             )}
-            
+
             {/* Close button */}
             <button
               onClick={onClose}
@@ -176,7 +174,7 @@ Example format:
             >
               <X size={20} />
             </button>
-            
+
             {/* Event title overlay */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4 text-white">
               <h2 className="text-2xl font-bold">{event.title}</h2>
@@ -198,15 +196,15 @@ Example format:
               </div>
             </div>
           </div>
-          
+
           {/* Modal tabs (if event is a branch point) */}
           {event.isBranchPoint && (
             <div className="flex border-b">
               <button
                 onClick={() => setView('details')}
                 className={`flex-1 py-3 font-medium text-center ${
-                  view === 'details' 
-                    ? 'text-blue-700 border-b-2 border-blue-700' 
+                  view === 'details'
+                    ? 'text-blue-700 border-b-2 border-blue-700'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -215,8 +213,8 @@ Example format:
               <button
                 onClick={() => setView('scenarios')}
                 className={`flex-1 py-3 font-medium text-center ${
-                  view === 'scenarios' 
-                    ? 'text-blue-700 border-b-2 border-blue-700' 
+                  view === 'scenarios'
+                    ? 'text-blue-700 border-b-2 border-blue-700'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -252,7 +250,7 @@ Example format:
                     {alternativeScenarios.map(scenario => (
                       <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} onClose={onClose} />
                     ))}
-                    {alternativeScenarios.length < 5 && (
+                    {alternativeScenarios.length < 5 && !newScenario && (
                       <button
                         onClick={handleCreateOwnScenario}
                         className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
@@ -264,47 +262,83 @@ Example format:
                 ) : (
                   <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
                     <p className="text-lg text-gray-600 mb-4">No alternative scenarios created yet.</p>
-                    <div className="flex space-x-4">
-                      <button
-                        onClick={handleCreateAIScenario}
-                        className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-                      >
-                        <span>Generate AI Scenarios</span>
-                      </button>
-                      {view === 'scenarios' && (userScenarios.length < 5) && (
+                    {!newScenario && (
+                      <div className="flex space-x-4">
+                        <button
+                          onClick={handleCreateAIScenario}
+                          className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                        >
+                          <span>Generate AI Scenarios</span>
+                        </button>
                         <button
                           onClick={handleCreateOwnScenario}
                           className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
                         >
-                          <span>Add Own Scenario</span>
+                          <span>Create Your Own</span>
                         </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {showAIScenarioOptions && (
-                  <div className="mt-6">
-                    {isLoading ? (
-                      <p>Generating AI scenarios...</p>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {scenarios.map(scenario => (
-                          <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} onClose={onClose} />
-                        ))}
                       </div>
                     )}
                   </div>
                 )}
 
-                {userScenarios.length > 0 && (
-                  <div className="mt-6">
-                    <h4 className="text-lg font-semibold mb-2">My Scenarios</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {userScenarios.map(scenario => (
-                        <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} onClose={onClose} />
-                      ))}
+                {newScenario && (
+                  <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                    <h4 className="text-lg font-semibold mb-3">Create New Scenario</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Title
+                        </label>
+                        <input
+                          type="text"
+                          value={newScenario.title}
+                          onChange={(e) => setNewScenario({ ...newScenario, title: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Description
+                        </label>
+                        <textarea
+                          value={newScenario.description}
+                          onChange={(e) => setNewScenario({ ...newScenario, description: e.target.value })}
+                          rows={3}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        ></textarea>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Consequences
+                        </label>
+                        <textarea
+                          value={newScenario.consequences}
+                          onChange={(e) => setNewScenario({ ...newScenario, consequences: e.target.value })}
+                          rows={3}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        ></textarea>
+                      </div>
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={handleSaveNewScenario}
+                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                        >
+                          Save Scenario
+                        </button>
+                        <button
+                          onClick={handleCancelNewScenario}
+                          className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
+                  </div>
+                )}
+
+                {isLoading && (
+                  <div className="mt-6">
+                    <p>Generating AI scenarios...</p>
                   </div>
                 )}
               </div>
