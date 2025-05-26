@@ -263,8 +263,8 @@ const Timeline: React.FC = () => {
   const renderConnectingLines = () => {
     const lines: JSX.Element[] = []; // Explicitly type lines
 
-    // Iterate through alternative branches
-    timelineData.alternativeBranches.forEach((branch) => { // Removed unused branchIndex
+    // Iterate through visible branches (excluding the main branch as it doesn't branch from another)
+    visibleBranches().filter(branch => branch.id !== timelineData.mainBranch.id).forEach((branch) => {
       const branchPointEvent = findEventById(branch.branchPointEventId);
       const parentBranch = findBranchByEventId(branch.branchPointEventId);
 
@@ -275,12 +275,12 @@ const Timeline: React.FC = () => {
         const branchPointY = getBranchVerticalPosition(
           parentBranch.id === timelineData.mainBranch.id
             ? 0 // Main branch is at index 0
-            : timelineData.alternativeBranches.findIndex(b => b.id === parentBranch.id) + 1 // Find parent branch index
+            : visibleBranches().findIndex(b => b.id === parentBranch.id) // Find parent branch index among visible branches
         );
 
         const newBranchStartX = calculateEventPosition(branch.events[0].year);
         const newBranchStartY = getBranchVerticalPosition(
-          timelineData.alternativeBranches.findIndex(b => b.id === branch.id) + 1 // Find this branch's index
+          visibleBranches().findIndex(b => b.id === branch.id) // Find this branch's index among visible branches
         );
 
         // Draw a line using SVG
