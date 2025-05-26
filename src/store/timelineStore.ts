@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { TimelineData, TimelineBranch, TimelineEvent, TimelineFilter, TimelineZoomLevel, AlternativeScenario } from '../types';
 import { initialTimelineData } from '../data/initialTimeline';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { z } from 'zod';
+import { generateObject } from 'ai';
 
 interface TimelineState {
   // Data
@@ -9,23 +12,23 @@ interface TimelineState {
   selectedBranchId: string;
   selectedEventId: string | null;
   visibleBranchIds: string[];
-  
+
   // UI state
   filter: TimelineFilter;
   zoomLevel: TimelineZoomLevel;
-  
+
   // Actions
   setSelectedBranch: (branchId: string) => void;
   setSelectedEvent: (eventId: string | null) => void;
   addVisibleBranch: (branchId: string) => void;
   removeVisibleBranch: (branchId: string) => void;
   createNewBranch: (
-    name: string, 
-    description: string, 
-    parentBranchId: string, 
-    branchPointEventId: string, 
+    name: string,
+    description: string,
+    parentBranchId: string,
+    branchPointEventId: string,
     scenario: AlternativeScenario
-  ) => string;
+  ) => Promise<string>; // createNewBranch is now async
   updateFilter: (filter: Partial<TimelineFilter>) => void;
   setZoomLevel: (level: TimelineZoomLevel) => void;
   getSelectedBranch: () => TimelineBranch;
@@ -56,58 +59,119 @@ const generateRandomColor = () => {
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
-// Generate new events based on the scenario
-const generateNewEvents = (
+// Generate new events based on the scenario using AI
+const generateNewEvents = async (
   branchPointEvent: TimelineEvent,
   scenario: AlternativeScenario
-): TimelineEvent[] => {
+): Promise<TimelineEvent[]> => {
   const currentYear = new Date().getFullYear();
   const startYear = branchPointEvent.year;
   const yearDiff = currentYear - startYear;
-  
+
   // Calculate how many events to generate (roughly one every 5-10 years)
   const numEvents = Math.floor(yearDiff / 7);
-  const newEvents: TimelineEvent[] = [];
-  
-  // Categories for generated events
-  const categories = ['politics', 'war', 'technology', 'economics', 'culture', 'science'];
-  const regions = ['Europe', 'North America', 'Asia', 'Global', 'Middle East', 'Africa'];
-  
-  // Add the branch point event based on the scenario
-  newEvents.push({
-    id: `alt-${branchPointEvent.id}`,
-    title: scenario.title,
-    description: scenario.description,
-    date: branchPointEvent.date,
-    year: branchPointEvent.year,
-    imageUrl: scenario.imageUrl,
-    isBranchPoint: false,
-    category: branchPointEvent.category,
-    region: branchPointEvent.region
+  if (numEvents <= 0) return [];
+
+  const google = createGoogleGenerativeAI({
+    apiKey: import.meta.env.VITE_GEMINI_API_KEY,
   });
-  
-  // Generate follow-up events
-  for (let i = 1; i <= numEvents; i++) {
-    const year = startYear + Math.floor((yearDiff * i) / numEvents);
-    const category = categories[Math.floor(Math.random() * categories.length)];
-    const region = regions[Math.floor(Math.random() * regions.length)];
-    
-    const newEvent: TimelineEvent = {
-      id: `generated-${Date.now()}-${i}`,
-      title: `Alternative ${category.charAt(0).toUpperCase() + category.slice(1)} Development`,
-      description: `In this alternate timeline, the ${category} landscape evolved differently due to ${scenario.title.toLowerCase()}.`,
-      date: `${year}-01-01`,
-      year,
-      isBranchPoint: false,
-      category,
-      region,
-      imageUrl: `https://images.pexels.com/photos/${Math.floor(Math.random() * 1000000)}/pexels-photo.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2`
-    };
-    
-    newEvents.push(newEvent);
+
+  const eventSchema = z.object({
+    title: z.string(),
+    description: z.string(),
+    date: z.string(), // ISO date string
+    imageUrl: z.string().optional(),
+    category: z.string(),
+    region: z.string().optional(),
+    year: z.number(),
+  });
+
+  const eventsSchema = z.array(eventSchema);
+
+  const prompt = `Given the historical event "${branchPointEvent.title}" that occurred on ${branchPointEvent.date} in ${branchPointEvent.region || 'an unspecified region'} with the description "${branchPointEvent.description}", and an alternative scenario "${scenario.title}" with the consequences "${scenario.consequences}", generate ${numEvents} plausible follow-up historical events for a new timeline branch starting from the year ${branchPointEvent.year}.
+
+The events should logically follow from the alternative scenario and cover a period from ${branchPointEvent.year + 1} to ${currentYear}.
+
+Return the events as a JSON array, where each event has the following properties:
+- id: string (generate a unique ID, e.g., 'generated-event-1')
+- title: string
+- description: string
+- date: string (ISO date string, e.g., 'YYYY-MM-DD')
+- imageUrl: string (a relevant image URL, can be a placeholder if a real one is hard to find)
+- isBranchPoint: boolean (always false for these generated events)
+- category: string (e.g., 'politics', 'war', 'technology', 'economics', 'culture', 'science')
+- region: string (e.g., 'Europe', 'North America', 'Asia', 'Global', 'Middle East', 'Africa')
+- year: number (the year of the event)
+
+Example format:
+[
+  {
+    "id": "generated-event-1",
+    "title": "Alternative Event 1",
+    "description": "Description of alternative event 1.",
+    "date": "YYYY-MM-DD",
+    "imageUrl": "url1",
+    "isBranchPoint": false,
+    "category": "politics",
+    "region": "Europe",
+    "year": YYYY
   }
-  
-  return newEvents;
+]`;
+
+  try {
+    const result = await generateObject({
+      model: google('gemini-2.0-flash', {
+        structuredOutputs: true,
+      }),
+      schema: eventsSchema,
+      prompt: prompt,
+    });
+
+    const generatedEvents = result.object;
+
+    // Add the branch point event based on the scenario at the beginning
+    const newEvents: TimelineEvent[] = [{
+      id: `alt-${branchPointEvent.id}`,
+      title: scenario.title,
+      description: scenario.description,
+      date: branchPointEvent.date,
+      year: branchPointEvent.year,
+      imageUrl: scenario.imageUrl,
+      isBranchPoint: false, // The scenario itself is not a branch point event in the new timeline
+      category: branchPointEvent.category, // Inherit category/region from branch point event
+      region: branchPointEvent.region
+    }];
+
+    // Add generated events with unique IDs and isBranchPoint: false
+    generatedEvents.forEach((event, index) => {
+      newEvents.push({
+        ...event,
+        id: `generated-${Date.now()}-${index}`, // Ensure unique ID
+        isBranchPoint: false,
+        // Ensure year is within the expected range
+        year: Math.max(branchPointEvent.year + 1, Math.min(currentYear, event.year)),
+        // Ensure date matches the year
+        date: `${Math.max(branchPointEvent.year + 1, Math.min(currentYear, event.year))}-01-01`, // Use a default date if AI doesn't provide one or it's invalid
+      });
+    });
+
+    return newEvents;
+
+  } catch (error) {
+    console.error('Error generating new events with AI:', error);
+    // Return only the branch point event if AI generation fails
+    return [{
+      id: `alt-${branchPointEvent.id}`,
+      title: scenario.title,
+      description: scenario.description,
+      date: branchPointEvent.date,
+      year: branchPointEvent.year,
+      imageUrl: scenario.imageUrl,
+      isBranchPoint: false,
+      category: branchPointEvent.category,
+      region: branchPointEvent.region
+    }];
+  }
 };
 
 export const useTimelineStore = create<TimelineState>()(
@@ -119,20 +183,20 @@ export const useTimelineStore = create<TimelineState>()(
       visibleBranchIds: [initialTimelineData.mainBranch.id],
       filter: {},
       zoomLevel: 'decade',
-      
+
       setSelectedBranch: (branchId) => set({ selectedBranchId: branchId }),
-      
+
       setSelectedEvent: (eventId) => set({ selectedEventId: eventId }),
-      
+
       addVisibleBranch: (branchId) => set((state) => ({
         visibleBranchIds: [...state.visibleBranchIds, branchId]
       })),
-      
+
       removeVisibleBranch: (branchId) => set((state) => ({
         visibleBranchIds: state.visibleBranchIds.filter(id => id !== branchId)
       })),
-      
-      createNewBranch: (name, description, parentBranchId, branchPointEventId, scenario) => {
+
+      createNewBranch: async (name, description, parentBranchId, branchPointEventId, scenario) => {
         const parentBranch = get().getBranchById(parentBranchId);
         if (!parentBranch) {
           console.error("createNewBranch: Parent branch not found", parentBranchId);
@@ -147,7 +211,7 @@ export const useTimelineStore = create<TimelineState>()(
         // we need to save the new scenario to the current event id
         // if the event id is not in the alternative scenarios, add it
         console.log('here: ', branchPointEvent);
-        
+
         if (!get().timelineData.alternativeScenarios[branchPointEventId]) {
           get().addAlternativeScenarios(branchPointEventId, [{
             id: scenario.id,
@@ -158,15 +222,15 @@ export const useTimelineStore = create<TimelineState>()(
             imageUrl: 'T/D',
           }]);
         }
-        
+
         if (!branchPointEvent) {
           console.error("createNewBranch: Branch point event not found", branchPointEventId);
           return '';
         }
-        
-        // Generate new events for this timeline branch
-        const newEvents = generateNewEvents(branchPointEvent, scenario);
-        
+
+        // Generate new events for this timeline branch using AI
+        const newEvents = await generateNewEvents(branchPointEvent, scenario);
+
         const newBranchId = `branch-${Date.now()}`;
         const newBranch: TimelineBranch = {
           id: newBranchId,
@@ -178,7 +242,7 @@ export const useTimelineStore = create<TimelineState>()(
           alternativeScenarioId: scenario.id,
           color: generateRandomColor(),
         };
-        
+
         set((state) => ({
           timelineData: {
             ...state.timelineData,
@@ -187,86 +251,86 @@ export const useTimelineStore = create<TimelineState>()(
           selectedBranchId: newBranchId,
           visibleBranchIds: [...state.visibleBranchIds, newBranchId]
         }));
-        
+
         return newBranchId;
       },
-      
+
       updateFilter: (filter) => set((state) => ({
         filter: { ...state.filter, ...filter }
       })),
-      
+
       setZoomLevel: (level) => set({ zoomLevel: level }),
-      
+
       getSelectedBranch: () => {
         const { selectedBranchId, timelineData } = get();
-        
+
         if (selectedBranchId === timelineData.mainBranch.id) {
           return timelineData.mainBranch;
         }
-        
+
         const branch = timelineData.alternativeBranches.find(
           branch => branch.id === selectedBranchId
         );
-        
+
         return branch || timelineData.mainBranch;
       },
-      
+
       getVisibleBranches: () => {
         const { visibleBranchIds, timelineData } = get();
         const branches: TimelineBranch[] = [];
-        
+
         if (visibleBranchIds.includes(timelineData.mainBranch.id)) {
           branches.push(timelineData.mainBranch);
         }
-        
+
         timelineData.alternativeBranches.forEach(branch => {
           if (visibleBranchIds.includes(branch.id)) {
             branches.push(branch);
           }
         });
-        
+
         return branches;
       },
-      
+
       getSelectedEvent: () => {
         const { selectedEventId } = get();
         if (!selectedEventId) return null;
-        
+
         return get().getEventById(selectedEventId);
       },
-      
+
       getBranchById: (branchId) => {
         const { timelineData } = get();
-        
+
         if (branchId === timelineData.mainBranch.id) {
           return timelineData.mainBranch;
         }
-        
+
         return timelineData.alternativeBranches.find(branch => branch.id === branchId);
       },
-      
+
       getEventById: (eventId) => {
         const { timelineData } = get();
-        
+
         // Check main branch
         const mainBranchEvent = timelineData.mainBranch.events.find(
           event => event.id === eventId
         );
         if (mainBranchEvent) return mainBranchEvent;
-        
+
         // Check alternative branches
         for (const branch of timelineData.alternativeBranches) {
           const event = branch.events.find(event => event.id === eventId);
           if (event) return event;
         }
-        
+
         return null;
       },
-      
+
       getAlternativeScenariosForEvent: (eventId: string) => {
-        const { timelineData } = get(); 
+        const { timelineData } = get();
         // console.log('getAlternativeScenariosForEvent: ', timelineData, eventId);
-        
+
         return timelineData.alternativeScenarios[eventId] || [];
       },
 

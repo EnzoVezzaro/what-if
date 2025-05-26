@@ -38,8 +38,8 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
     setIsCreatingBranch(true);
   };
 
-  const handleCreateBranch = () => {
-    const newBranchId = createNewBranch(
+  const handleCreateBranch = async () => { // Make function async
+    const newBranchId = await createNewBranch( // Await the promise
       editedTitle,
       editedConsequences,
       branchId,
@@ -47,7 +47,7 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
       scenario
     );
 
-    if (newBranchId) {
+    if (newBranchId) { // Check the awaited string
       onClose(); // Close the modal after creating a new branch
     }
   };
