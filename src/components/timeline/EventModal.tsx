@@ -19,15 +19,24 @@ const EventModal: React.FC<EventModalProps> = ({ event, branchId, onClose }) => 
   const [showAIScenarioOptions, setShowAIScenarioOptions] = useState(false);
   const alternativeScenarios = useTimelineStore(state => state.getAlternativeScenariosForEvent(event.id));
   const addAlternativeScenariosToStore = useTimelineStore(state => state.addAlternativeScenarios);
-  
+  const [userScenarios, setUserScenarios] = useState<AlternativeScenario[]>([]);
+
   const handleCreateAIScenario = () => {
     setShowAIScenarioOptions(true);
     generateAIScenarios();
   };
 
   const handleCreateOwnScenario = () => {
-    // Logic for creating own scenario
-    console.log('Create your own scenario clicked');
+    if (userScenarios.length < 5) {
+      const newScenario: AlternativeScenario = {
+        id: `user-scenario-${Date.now()}`,
+        title: 'New Scenario',
+        description: 'Click to edit',
+        consequences: 'Click to edit',
+        imageUrl: '',
+      };
+      setUserScenarios(prev => [...prev, newScenario]);
+    }
   };
 
   const [isLoading, setIsLoading] = useState(false);
@@ -132,7 +141,7 @@ Example format:
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: 'spring', damping: 25 }}
-          className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden"
+          className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden relative"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modal header with image */}
@@ -223,55 +232,56 @@ Example format:
               </div>
             ) : (
               <div>
-                <p className="text-gray-600 mb-6">
-                  Select an alternative scenario to explore a different timeline branching from this event.
-                </p>
-                {!showAIScenarioOptions ? (
-                  <div className="flex flex-col space-y-4">
+                <div className="flex flex-col space-y-4">
+                  {alternativeScenarios.map(scenario => (
+                    <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} onClose={onClose} />
+                  ))}
+                  {userScenarios.map((scenario, index) => (
+                    <ScenarioCard
+                      key={scenario.id}
+                      scenario={scenario}
+                      eventId={event.id}
+                      branchId={branchId}
+                      onClose={onClose}
+                      isUserCreated={true}
+                      onUpdateScenario={(updatedScenario) => {
+                        const updatedUserScenarios = [...userScenarios];
+                        updatedUserScenarios[index] = updatedScenario;
+                        setUserScenarios(updatedUserScenarios);
+                      }}
+                      onDeleteScenario={() => {
+                        const updatedUserScenarios = userScenarios.filter(s => s.id !== scenario.id);
+                        setUserScenarios(updatedUserScenarios);
+                      }}
+                    />
+                  ))}
+                  {showAIScenarioOptions && isLoading && (
+                    <div className="text-center text-gray-500">Generating AI scenarios...</div>
+                  )}
+                  {showAIScenarioOptions && scenarios.length > 0 && (
+                    <div className="flex flex-col space-y-4">
+                      {scenarios.map(scenario => (
+                        <ScenarioCard key={scenario.id} scenario={scenario} eventId={event.id} branchId={branchId} />
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex space-x-4 mt-4">
                     <button
                       onClick={handleCreateAIScenario}
-                      className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-semibold"
+                      className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors flex items-center justify-center"
                     >
-                      <span>Create Alternative Scenario with AI</span>
+                      <span className="mr-2">Generate AI Scenarios</span> <ArrowRight size={16} />
                     </button>
-                    <button
-                      onClick={handleCreateOwnScenario}
-                      className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-lg font-semibold"
-                    >
-                      <span>Create Your Own</span>
-                    </button>
-                  </div>
-                ) : showAIScenarioOptions ? (
-                  <div>
-                    <h3 className="text-xl font-semibold mb-4">AI-Generated Scenario Options</h3>
-                    {isLoading && <p>Generating 5 alternative scenarios...</p>}
-                    {!isLoading && scenarios.length > 0 && (
-                      <div className="space-y-4">
-                        {scenarios.map((scenario: AlternativeScenario) => (
-                          <ScenarioCard
-                            key={scenario.id}
-                            scenario={scenario}
-                            event={event}
-                            branchId={branchId}
-                            onClose={onClose}
-                          />
-                        ))}
-                      </div>
+                    {userScenarios.length < 5 && (
+                      <button
+                        onClick={handleCreateOwnScenario}
+                        className="flex-1 bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition-colors flex items-center justify-center"
+                      >
+                        <span className="mr-2">Create Your Own Scenario</span> <ArrowRight size={16} />
+                      </button>
                     )}
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {alternativeScenarios.map(scenario => (
-                      <ScenarioCard
-                        key={scenario.id}
-                        scenario={scenario}
-                        event={event}
-                        branchId={branchId}
-                        onClose={onClose}
-                      />
-                    ))}
-                  </div>
-                )}
+                </div>
               </div>
             )}
           </div>

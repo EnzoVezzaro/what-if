@@ -24,7 +24,7 @@ interface TimelineState {
     description: string, 
     parentBranchId: string, 
     branchPointEventId: string, 
-    alternativeScenarioId: string
+    scenario: AlternativeScenario
   ) => string;
   updateFilter: (filter: Partial<TimelineFilter>) => void;
   setZoomLevel: (level: TimelineZoomLevel) => void;
@@ -130,7 +130,7 @@ export const useTimelineStore = create<TimelineState>()(
         visibleBranchIds: state.visibleBranchIds.filter(id => id !== branchId)
       })),
       
-      createNewBranch: (name, description, parentBranchId, branchPointEventId, alternativeScenarioId) => {
+      createNewBranch: (name, description, parentBranchId, branchPointEventId, scenario) => {
         const parentBranch = get().getBranchById(parentBranchId);
         if (!parentBranch) {
           console.error("createNewBranch: Parent branch not found", parentBranchId);
@@ -147,16 +147,6 @@ export const useTimelineStore = create<TimelineState>()(
           return '';
         }
         
-        // Get the selected scenario
-        const scenario = get().timelineData.alternativeScenarios[branchPointEventId]?.find(
-          s => s.id === alternativeScenarioId
-        );
-        
-        if (!scenario) {
-          console.error("createNewBranch: Scenario not found", alternativeScenarioId, "for event", branchPointEventId, "Available scenarios:", get().timelineData.alternativeScenarios[branchPointEventId]);
-          return '';
-        }
-        
         // Generate new events for this timeline branch
         const newEvents = generateNewEvents(branchPointEvent, scenario);
         
@@ -168,7 +158,7 @@ export const useTimelineStore = create<TimelineState>()(
           events: newEvents,
           parentBranchId,
           branchPointEventId,
-          alternativeScenarioId,
+          alternativeScenarioId: scenario.id,
           color: generateRandomColor(),
         };
         
