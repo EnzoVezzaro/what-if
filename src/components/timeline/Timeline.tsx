@@ -1,16 +1,18 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
-import { useTimelineStore } from '../../store/timelineStore';
+import { useTimelineStore, eras } from '../../store/timelineStore'; // Import eras
 import TimelineEvent from './TimelineEvent';
 import { TimelineEvent as TimelineEventType, TimelineBranch, TimelineZoomLevel } from '../../types';
 
 const Timeline: React.FC = () => {
-  const timelineData = useTimelineStore(state => state.timelineData);
-  const visibleBranches = useTimelineStore(state => state.getVisibleBranches);
-  const removeVisibleBranch = useTimelineStore(state => state.removeVisibleBranch);
-  const filter = useTimelineStore(state => state.filter);
-  const zoomLevel = useTimelineStore(state => state.zoomLevel);
-  const setZoomLevel = useTimelineStore(state => state.setZoomLevel);
+  const { timelineData, filter, zoomLevel, visibleBranchIds, removeVisibleBranch, setZoomLevel } = useTimelineStore(state => ({
+    timelineData: state.timelineData,
+    filter: state.filter,
+    zoomLevel: state.zoomLevel,
+    visibleBranchIds: state.visibleBranchIds, // Get visibleBranchIds directly
+    removeVisibleBranch: state.removeVisibleBranch,
+    setZoomLevel: state.setZoomLevel,
+  }));
 
   const timelineContainerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -75,8 +77,52 @@ const Timeline: React.FC = () => {
   }, [isDragging, startX, scrollLeft]);
 
 
-  // Get all events from visible branches, filtered
-  const visibleBranchesWithFilteredEvents = visibleBranches();
+  // Helper to apply filters to events (copied from timelineStore.ts for local use)
+  const filterEvents = (events: TimelineEventType[], currentFilter: typeof filter) => {
+    return events.filter(event => {
+      if (currentFilter.categories && currentFilter.categories.length > 0 && !currentFilter.categories.includes(event.category)) return false;
+      if (currentFilter.regions && currentFilter.regions.length > 0 && (!event.region || !currentFilter.regions.includes(event.region))) return false;
+
+      // Handle multiple era selections
+      if (currentFilter.selectedEras && currentFilter.selectedEras.length > 0) {
+        const eventYear = event.year;
+        const isWithinSelectedEra = currentFilter.selectedEras.some(selectedEraName => {
+          const era = eras.find(e => e.name === selectedEraName); // Use imported eras
+          return era && eventYear >= era.startYear && eventYear <= era.endYear;
+        });
+        if (!isWithinSelectedEra) return false;
+      }
+
+      if (currentFilter.startYear && event.year < currentFilter.startYear) return false;
+      if (currentFilter.endYear && event.year > currentFilter.endYear) return false;
+
+      return true;
+    });
+  };
+
+  // Get all events from visible branches, filtered using useMemo
+  const visibleBranchesWithFilteredEvents = useMemo(() => {
+    const branches: TimelineBranch[] = [];
+
+    // Check main branch
+    if (visibleBranchIds.includes(timelineData.mainBranch.id)) {
+      const filteredMainBranchEvents = filterEvents(timelineData.mainBranch.events, filter);
+      if (filteredMainBranchEvents.length > 0) {
+        branches.push({ ...timelineData.mainBranch, events: filteredMainBranchEvents });
+      }
+    }
+
+    // Check alternative branches
+    timelineData.alternativeBranches.forEach(branch => {
+      if (visibleBranchIds.includes(branch.id)) {
+        const filteredBranchEvents = filterEvents(branch.events, filter);
+        if (filteredBranchEvents.length > 0) {
+          branches.push({ ...branch, events: filteredBranchEvents });
+        }
+      }
+    });
+    return branches;
+  }, [visibleBranchIds, timelineData, filter]); // Dependencies for memoization
 
   // Get all years from all visible events to calculate timeline scale
   const allYears = visibleBranchesWithFilteredEvents
@@ -246,7 +292,7 @@ const Timeline: React.FC = () => {
   // Render connecting lines between branch points and new branches
   const renderConnectingLines = () => {
     const lines: JSX.Element[] = []; // Explicitly type lines
-    const currentVisibleBranches = visibleBranches();
+    const currentVisibleBranches = visibleBranchesWithFilteredEvents; // Use the memoized value
 
     // Iterate through visible branches (excluding the main branch as it doesn't branch from another)
     currentVisibleBranches.filter(branch => branch.id !== timelineData.mainBranch.id).forEach((branch) => {
@@ -280,7 +326,7 @@ const Timeline: React.FC = () => {
         lines.push(
           <svg
             key={`line-${branch.id}`}
-            className="absolute top-8 left-0 w-full h-full pointer-events-none"
+            className="absolute top-8 left-4 w-full h-full pointer-events-none"
             style={{ overflow: 'visible' }}
           >
             <line

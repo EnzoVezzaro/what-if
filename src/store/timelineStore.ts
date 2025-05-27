@@ -229,9 +229,12 @@ export const useTimelineStore = create<TimelineState>()(
         visibleBranchIds: [...state.visibleBranchIds, branchId]
       })),
 
-      removeVisibleBranch: (branchId) => set((state) => ({
-        visibleBranchIds: state.visibleBranchIds.filter(id => id !== branchId)
-      })),
+      removeVisibleBranch: (branchId) => set((state) => {
+        console.log('Before removeVisibleBranch:', state.visibleBranchIds);
+        const newVisibleBranchIds = state.visibleBranchIds.filter(id => id !== branchId);
+        console.log('After removeVisibleBranch:', newVisibleBranchIds);
+        return { visibleBranchIds: newVisibleBranchIds };
+      }),
 
       createNewBranch: async (name, description, parentBranchId, branchPointEventId, scenario) => {
         const parentBranch = get().getBranchById(parentBranchId);
