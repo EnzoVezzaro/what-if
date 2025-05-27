@@ -8,7 +8,7 @@ export const runtime = 'edge';
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
   const chat = model.startChat({
     history: messages.map((m: any) => ({
@@ -33,5 +33,4 @@ export async function POST(req: Request) {
   });
 
   return new StreamingTextResponse(stream);
-}
 }

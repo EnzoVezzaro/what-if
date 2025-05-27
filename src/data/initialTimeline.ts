@@ -9,7 +9,7 @@ export const initialTimelineData: TimelineData = {
     events: initialTimelineEventsData.map(event => ({
       id: event.id,
       title: event.label,
-      description: event.label,
+      description: event.description,
       date: event.date,
       year: new Date(event.date).getFullYear(),
       imageUrl: event.image,

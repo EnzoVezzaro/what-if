@@ -60,7 +60,7 @@ const generateRandomColor = () => {
 };
 
 // Generate new events based on the scenario using AI
-const generateNewEvents = async (
+const generateNewEvents = async ( 
   branchPointEvent: TimelineEvent,
   scenario: AlternativeScenario
 ): Promise<TimelineEvent[]> => {
@@ -95,7 +95,7 @@ The events should logically follow from the alternative scenario and cover a per
 Return the events as a JSON array, where each event has the following properties:
 - id: string (generate a unique ID, e.g., 'generated-event-1')
 - title: string
-- description: string
+- description: string. Make them detailed and engaging descriptions for each event, with at least three paragraphs per description
 - date: string (ISO date string, e.g., 'YYYY-MM-DD')
 - imageUrl: string (a relevant image URL, can be a placeholder if a real one is hard to find)
 - isBranchPoint: boolean (always false for these generated events)
@@ -108,7 +108,7 @@ Example format:
   {
     "id": "generated-event-1",
     "title": "Alternative Event 1",
-    "description": "Description of alternative event 1.",
+    "description": "Description of alternative event 1. Make them detailed and engaging descriptions for each event, with at least three paragraphs per description",
     "date": "YYYY-MM-DD",
     "imageUrl": "url1",
     "isBranchPoint": false,
@@ -159,6 +159,7 @@ Example format:
 
   } catch (error) {
     console.error('Error generating new events with AI:', error);
+    return [];
     // Return only the branch point event if AI generation fails
     return [{
       id: `alt-${branchPointEvent.id}`,
