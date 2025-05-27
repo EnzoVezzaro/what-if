@@ -233,16 +233,6 @@ Example format:
               <div>
                 <h3 className="text-xl font-semibold mb-3">Event Details</h3>
                 <p className="text-gray-700 mb-4 text-justify">{event.description}</p>
-                {event.outcomes && (
-                  <div className="mt-4">
-                    <h4 className="text-lg font-semibold mb-2">Outcomes</h4>
-                    <ul className="list-disc list-inside text-gray-700">
-                      {event.outcomes.map((outcome, index) => (
-                        <li key={index}>{outcome}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             )}
 

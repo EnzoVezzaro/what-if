@@ -40,6 +40,7 @@ interface TimelineState {
   addAlternativeScenarios: (eventId: string, scenarios: AlternativeScenario[]) => void;
   updateAlternativeScenario: (eventId: string, scenarioId: string, updatedScenario: Partial<AlternativeScenario>) => void;
   deleteAlternativeScenario: (eventId: string, scenarioId: string) => void;
+  addEventToBranch: (branchId: string, event: TimelineEvent) => void; // New action
 
   resetTimeline: () => void;
 }
@@ -440,6 +441,22 @@ export const useTimelineStore = create<TimelineState>()(
             },
           },
         }));
+      },
+
+      addEventToBranch: (branchId: string, event: TimelineEvent) => {
+        set((state) => {
+          const updatedTimelineData = { ...state.timelineData };
+          if (updatedTimelineData.mainBranch.id === branchId) {
+            updatedTimelineData.mainBranch.events = [...updatedTimelineData.mainBranch.events, event].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          } else {
+            updatedTimelineData.alternativeBranches = updatedTimelineData.alternativeBranches.map(branch =>
+              branch.id === branchId
+                ? { ...branch, events: [...branch.events, event].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) }
+                : branch
+            );
+          }
+          return { timelineData: updatedTimelineData };
+        });
       },
 
       resetTimeline: () => set({ timelineData: initialTimelineData }),

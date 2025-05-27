@@ -2,17 +2,23 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { useTimelineStore, eras } from '../../store/timelineStore'; // Import eras
 import TimelineEvent from './TimelineEvent';
+import CreateEventModal from './CreateEventModal'; // Import the new modal
 import { TimelineEvent as TimelineEventType, TimelineBranch, TimelineZoomLevel } from '../../types';
 
 const Timeline: React.FC = () => {
-  const { timelineData, filter, zoomLevel, visibleBranchIds, removeVisibleBranch, setZoomLevel } = useTimelineStore(state => ({
+  const { timelineData, filter, zoomLevel, visibleBranchIds, removeVisibleBranch, setZoomLevel, addEventToBranch } = useTimelineStore(state => ({
     timelineData: state.timelineData,
     filter: state.filter,
     zoomLevel: state.zoomLevel,
     visibleBranchIds: state.visibleBranchIds, // Get visibleBranchIds directly
     removeVisibleBranch: state.removeVisibleBranch,
     setZoomLevel: state.setZoomLevel,
+    addEventToBranch: state.addEventToBranch, // Add this to useTimelineStore
   }));
+
+  const [showCreateEventModal, setShowCreateEventModal] = useState(false);
+  const [initialCreateEventDate, setInitialCreateEventDate] = useState('');
+  const [selectedBranchForNewEvent, setSelectedBranchForNewEvent] = useState(''); // New state for clicked branch
 
   const timelineContainerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -414,13 +420,31 @@ const Timeline: React.FC = () => {
               <div key={branch.id} className="absolute w-full">
                 {/* Branch line */}
                 <div
-                  className="absolute h-2 rounded-full"
+                  className="absolute h-2 rounded-full timeline-branch cursor-pointer" // Added cursor-pointer
                   style={{
                     backgroundColor: branch.color,
                     top: `${verticalPosition}px`,
                     left: '0',
                     right: '0',
                     opacity: 0.7
+                  }}
+                  onClick={(e) => {
+                    // Calculate the x position relative to the timeline content
+                    const timelineContentElement = timelineRef.current;
+                    if (!timelineContentElement) return;
+
+                    const clickX = e.clientX - timelineContentElement.getBoundingClientRect().left;
+
+                    // Calculate the year based on the click position
+                    const yearRange = maxYear - minYear;
+                    const yearAtClick = minYear + (clickX / timelineWidth) * yearRange;
+
+                    // Create a date string from the calculated year
+                    const date = new Date(Math.round(yearAtClick), 0, 1).toISOString().split('T')[0]; // YYYY-MM-DD format
+
+                    setInitialCreateEventDate(date);
+                    setSelectedBranchForNewEvent(branch.id); // Set the clicked branch ID
+                    setShowCreateEventModal(true);
                   }}
                 ></div>
 
@@ -470,6 +494,17 @@ const Timeline: React.FC = () => {
           {renderTimeMarkers()}
         </div>
       </div>
+
+      {showCreateEventModal && (
+        <CreateEventModal
+          initialDate={initialCreateEventDate}
+          branchId={selectedBranchForNewEvent} // Pass the selected branch ID
+          onClose={() => setShowCreateEventModal(false)}
+          onCreateEvent={(newEvent) => {
+            addEventToBranch(selectedBranchForNewEvent, newEvent); // Use the selected branch ID
+          }}
+        />
+      )}
     </div>
   );
 };
