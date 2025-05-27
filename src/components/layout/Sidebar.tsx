@@ -1,6 +1,6 @@
 import React from 'react';
 import { FolderTree, Clock, Map, Filter } from 'lucide-react';
-import { useTimelineStore } from '../../store/timelineStore';
+import { useTimelineStore, eras } from '../../store/timelineStore';
 import TimelineTree from '../timeline/TimelineTree';
 
 interface SidebarProps {
@@ -19,20 +19,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     ...timelineData.alternativeBranches.flatMap(branch => branch.events)
   ];
   
-  const categories = Array.from(new Set(allEvents.map(event => event.category)));
-  const regions = Array.from(new Set(allEvents.map(event => event.region).filter(Boolean)));
+  const categories = Array.from(new Set(allEvents.map(event => event.category))) as string[];
+  const regions = Array.from(new Set(allEvents.map(event => event.region).filter(Boolean))) as string[];
   
-  // Create era objects based on event years
-  const years = allEvents.map(event => event.year);
-  const minYear = Math.min(...years);
-  const maxYear = Math.max(...years);
-  
-  const eras = [
-    { name: 'Pre-WWI (Before 1914)', startYear: minYear, endYear: 1913 },
-    { name: 'World Wars (1914-1945)', startYear: 1914, endYear: 1945 },
-    { name: 'Cold War (1946-1991)', startYear: 1946, endYear: 1991 },
-    { name: 'Modern Era (1992-Present)', startYear: 1992, endYear: maxYear }
-  ];
+
   
   return (
     <aside
@@ -82,12 +72,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                 {eras.map(era => (
                   <button
                     key={era.name}
-                    onClick={() => updateFilter({ 
-                      startYear: era.startYear, 
-                      endYear: era.endYear 
-                    })}
+                    onClick={() => updateFilter({ selectedEras: [era.name] })}
                     className={`block w-full text-left px-3 py-2 rounded ${
-                      filter.startYear === era.startYear && filter.endYear === era.endYear
+                      filter.selectedEras?.includes(era.name)
                         ? 'bg-blue-100 text-blue-800'
                         : 'hover:bg-gray-100'
                     }`}
@@ -95,9 +82,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                     {era.name}
                   </button>
                 ))}
-                {(filter.startYear || filter.endYear) && (
+                {(filter.selectedEras && filter.selectedEras.length > 0) && (
                   <button
-                    onClick={() => updateFilter({ startYear: undefined, endYear: undefined })}
+                    onClick={() => updateFilter({ selectedEras: [] })}
                     className="text-sm text-blue-700 hover:underline mt-2"
                   >
                     Clear time filter
@@ -115,9 +102,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                 {regions.map(region => (
                   <button
                     key={region}
-                    onClick={() => updateFilter({ region })}
+                    onClick={() => {
+                      const currentRegions = filter.regions || [];
+                      if (currentRegions.includes(region)) {
+                        updateFilter({ regions: currentRegions.filter(r => r !== region) });
+                      } else {
+                        updateFilter({ regions: [...currentRegions, region] });
+                      }
+                    }}
                     className={`block w-full text-left px-3 py-2 rounded ${
-                      filter.region === region
+                      filter.regions?.includes(region)
                         ? 'bg-blue-100 text-blue-800'
                         : 'hover:bg-gray-100'
                     }`}
@@ -125,14 +119,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                     {region}
                   </button>
                 ))}
-                {filter.region && (
-                  <button
-                    onClick={() => updateFilter({ region: undefined })}
-                    className="text-sm text-blue-700 hover:underline mt-2"
-                  >
-                    Clear region filter
-                  </button>
-                )}
               </div>
             </div>
             
@@ -145,9 +131,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                 {categories.map(category => (
                   <button
                     key={category}
-                    onClick={() => updateFilter({ category })}
+                    onClick={() => {
+                      const currentCategories = filter.categories || [];
+                      if (currentCategories.includes(category)) {
+                        updateFilter({ categories: currentCategories.filter(c => c !== category) });
+                      } else {
+                        updateFilter({ categories: [...currentCategories, category] });
+                      }
+                    }}
                     className={`block w-full text-left px-3 py-2 rounded capitalize ${
-                      filter.category === category
+                      filter.categories?.includes(category)
                         ? 'bg-blue-100 text-blue-800'
                         : 'hover:bg-gray-100'
                     }`}
@@ -155,19 +148,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                     {category}
                   </button>
                 ))}
-                {filter.category && (
-                  <button
-                    onClick={() => updateFilter({ category: undefined })}
-                    className="text-sm text-blue-700 hover:underline mt-2"
-                  >
-                    Clear category filter
-                  </button>
-                )}
               </div>
             </div>
             
             <button
-              onClick={() => updateFilter({})}
+              onClick={() => updateFilter({ categories: [], regions: [], selectedEras: [], startYear: undefined, endYear: undefined })}
               className="w-full py-2 rounded bg-blue-700 text-white hover:bg-blue-800 transition-colors"
             >
               Clear All Filters

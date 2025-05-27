@@ -45,9 +45,9 @@ export interface User {
 }
 
 export type TimelineFilter = {
-  era?: string;
-  region?: string;
-  category?: string;
+  selectedEras?: string[];
+  regions?: string[];
+  categories?: string[];
   startYear?: number;
   endYear?: number;
 };

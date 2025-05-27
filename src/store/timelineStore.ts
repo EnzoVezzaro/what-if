@@ -44,13 +44,34 @@ interface TimelineState {
   resetTimeline: () => void;
 }
 
+// Define eras here for consistent filtering logic
+export const eras = [
+  { name: 'Pre-WWI (Before 1914)', startYear: -Infinity, endYear: 1913 }, // Use -Infinity for events before any recorded year
+  { name: 'World Wars (1914-1945)', startYear: 1914, endYear: 1945 },
+  { name: 'Cold War (1946-1991)', startYear: 1946, endYear: 1991 },
+  { name: 'Modern Era (1992-Present)', startYear: 1992, endYear: Infinity } // Use Infinity for events up to present/future
+];
+
 // Apply filters to events
 const filterEvents = (events: TimelineEvent[], filter: TimelineFilter) => {
   return events.filter(event => {
-    if (filter.category && event.category !== filter.category) return false;
-    if (filter.region && event.region !== filter.region) return false;
+    if (filter.categories && filter.categories.length > 0 && !filter.categories.includes(event.category)) return false;
+    if (filter.regions && filter.regions.length > 0 && (!event.region || !filter.regions.includes(event.region))) return false;
+
+    // Handle multiple era selections
+    if (filter.selectedEras && filter.selectedEras.length > 0) {
+      const eventYear = event.year;
+      const isWithinSelectedEra = filter.selectedEras.some(selectedEraName => {
+        const era = eras.find(e => e.name === selectedEraName);
+        return era && eventYear >= era.startYear && eventYear <= era.endYear;
+      });
+      if (!isWithinSelectedEra) return false;
+    }
+
+    // Existing startYear/endYear for custom range, if any (though with eras, this might be less used)
     if (filter.startYear && event.year < filter.startYear) return false;
     if (filter.endYear && event.year > filter.endYear) return false;
+
     return true;
   });
 };
@@ -193,7 +214,11 @@ export const useTimelineStore = create<TimelineState>()(
       selectedBranchId: initialTimelineData.mainBranch.id,
       selectedEventId: null,
       visibleBranchIds: [initialTimelineData.mainBranch.id],
-      filter: {},
+      filter: {
+        categories: [],
+        regions: [],
+        selectedEras: [],
+      },
       zoomLevel: 'decade',
 
       setSelectedBranch: (branchId) => set({ selectedBranchId: branchId }),
@@ -267,9 +292,29 @@ export const useTimelineStore = create<TimelineState>()(
         return newBranchId;
       },
 
-      updateFilter: (filter) => set((state) => ({
-        filter: { ...state.filter, ...filter }
-      })),
+      updateFilter: (newFilter) => set((state) => {
+        const updatedFilter: TimelineFilter = { ...state.filter };
+
+        if (newFilter.categories !== undefined) {
+          updatedFilter.categories = newFilter.categories;
+        }
+
+        if (newFilter.regions !== undefined) {
+          updatedFilter.regions = newFilter.regions;
+        }
+
+        if (newFilter.selectedEras !== undefined) {
+          updatedFilter.selectedEras = newFilter.selectedEras;
+        }
+
+        // Handle startYear and endYear (these are now primarily for custom ranges, not era buttons)
+        if (newFilter.startYear !== undefined) updatedFilter.startYear = newFilter.startYear;
+        if (newFilter.endYear !== undefined) updatedFilter.endYear = newFilter.endYear;
+        if ('startYear' in newFilter && newFilter.startYear === undefined) updatedFilter.startYear = undefined;
+        if ('endYear' in newFilter && newFilter.endYear === undefined) updatedFilter.endYear = undefined;
+
+        return { filter: updatedFilter };
+      }),
 
       setZoomLevel: (level) => set({ zoomLevel: level }),
 

@@ -255,8 +255,8 @@ const Timeline: React.FC = () => {
 
       // Helper to check if an event passes the current filter
       const doesEventPassFilter = (event: TimelineEventType) => {
-        if (filter.category && event.category !== filter.category) return false;
-        if (filter.region && event.region !== filter.region) return false;
+        if (filter.categories && filter.categories.length > 0 && !filter.categories.includes(event.category)) return false;
+        if (filter.regions && filter.regions.length > 0 && (!event.region || !filter.regions.includes(event.region))) return false;
         if (filter.startYear && event.year < filter.startYear) return false;
         if (filter.endYear && event.year > filter.endYear) return false;
         return true;
