@@ -83,10 +83,10 @@ Return the scenarios as an array where each scenario has these properties:
 Example format:
 [
   {
-    "title": "Scenario 1",
-    "description": "Description 1",
-    "consequences": "Consequences 1",
-    "imageUrl": "url1"
+    "title": "Title Scenario",
+    "description": "Description",
+    "consequences": "Consequences",
+    "imageUrl": "url"
   }
 ]`;
       const google = createGoogleGenerativeAI({
