@@ -280,7 +280,7 @@ const Timeline: React.FC = () => {
         lines.push(
           <svg
             key={`line-${branch.id}`}
-            className="absolute top-0 left-0 w-full h-full pointer-events-none"
+            className="absolute top-8 left-0 w-full h-full pointer-events-none"
             style={{ overflow: 'visible' }}
           >
             <line
@@ -309,7 +309,7 @@ const Timeline: React.FC = () => {
 
 
   return (
-    <div className="relative h-full flex flex-col">
+    <div className="relative h-full flex flex-col ">
       {/* Timeline controls */}
       <div className="absolute top-4 left-4 z-10 flex space-x-2">
         <button
@@ -349,13 +349,13 @@ const Timeline: React.FC = () => {
       {/* Timeline content */}
       <div
         ref={timelineContainerRef}
-        className="flex-1 relative flex flex-col overflow-x-auto" // Changed to flex-col to stack content and time markers
+        className="flex-1 relative flex flex-col overflow-x-auto p-4 pt-0"
         onDoubleClick={zoomIn}
       >
         <div
           ref={timelineRef}
-          className="relative flex-1 overflow-x-auto overflow-y-auto" // flex-1 to take remaining space, overflow-y-auto for content scrolling
-          style={{ width: `${timelineWidth}px`, minHeight: '400px' }} // Removed fixed height
+          className="relative flex-1 overflow-x-auto overflow-y-auto pt-8"
+          style={{ width: `${timelineWidth}px`, minHeight: '400px' }}
         >
           {/* Render connecting lines */}
           {renderConnectingLines()}
