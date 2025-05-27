@@ -349,12 +349,12 @@ const Timeline: React.FC = () => {
       {/* Timeline content */}
       <div
         ref={timelineContainerRef}
-        className="flex-1 relative flex flex-col overflow-x-auto p-4 pt-0"
+        className="flex-1 relative flex flex-col overflow-x-auto pt-0"
         onDoubleClick={zoomIn}
       >
         <div
           ref={timelineRef}
-          className="relative flex-1 overflow-x-auto overflow-y-auto pt-8"
+          className="relative flex-1 overflow-x-hidden overflow-y-auto p-4 pt-8"
           style={{ width: `${timelineWidth}px`, minHeight: '400px' }}
         >
           {/* Render connecting lines */}
