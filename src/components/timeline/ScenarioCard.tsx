@@ -83,7 +83,7 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
         className="flex cursor-pointer"
         onClick={toggleExpand}
       >
-        {scenario.imageUrl && (
+        {/*scenario.imageUrl && (
           <div className="w-24 h-24 md:w-32 md:h-32 flex-shrink-0">
             <img
               src={scenario.imageUrl}
@@ -91,7 +91,7 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
               className="w-full h-full object-cover"
             />
           </div>
-        )}
+        )*/}
 
         <div className="p-4 flex flex-col flex-1">
           <h3 className="font-medium text-lg">{editedTitle}</h3>

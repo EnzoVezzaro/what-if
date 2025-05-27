@@ -44,6 +44,17 @@ interface TimelineState {
   resetTimeline: () => void;
 }
 
+// Apply filters to events
+const filterEvents = (events: TimelineEvent[], filter: TimelineFilter) => {
+  return events.filter(event => {
+    if (filter.category && event.category !== filter.category) return false;
+    if (filter.region && event.region !== filter.region) return false;
+    if (filter.startYear && event.year < filter.startYear) return false;
+    if (filter.endYear && event.year > filter.endYear) return false;
+    return true;
+  });
+};
+
 // Generate a random color for new branches
 const generateRandomColor = () => {
   const colors = [
@@ -277,19 +288,26 @@ export const useTimelineStore = create<TimelineState>()(
       },
 
       getVisibleBranches: () => {
-        const { visibleBranchIds, timelineData } = get();
+        const { visibleBranchIds, timelineData, filter } = get();
         const branches: TimelineBranch[] = [];
 
+        // Check main branch
         if (visibleBranchIds.includes(timelineData.mainBranch.id)) {
-          branches.push(timelineData.mainBranch);
+          const filteredMainBranchEvents = filterEvents(timelineData.mainBranch.events, filter);
+          if (filteredMainBranchEvents.length > 0) {
+            branches.push({ ...timelineData.mainBranch, events: filteredMainBranchEvents });
+          }
         }
 
+        // Check alternative branches
         timelineData.alternativeBranches.forEach(branch => {
           if (visibleBranchIds.includes(branch.id)) {
-            branches.push(branch);
+            const filteredBranchEvents = filterEvents(branch.events, filter);
+            if (filteredBranchEvents.length > 0) {
+              branches.push({ ...branch, events: filteredBranchEvents });
+            }
           }
         });
-
         return branches;
       },
 

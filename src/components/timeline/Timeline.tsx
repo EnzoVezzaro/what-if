@@ -8,7 +8,6 @@ const Timeline: React.FC = () => {
   const timelineData = useTimelineStore(state => state.timelineData);
   const visibleBranches = useTimelineStore(state => state.getVisibleBranches);
   const removeVisibleBranch = useTimelineStore(state => state.removeVisibleBranch);
-  const visibleBranchIds = useTimelineStore(state => state.visibleBranchIds); // Select visibleBranchIds to trigger re-renders
   const filter = useTimelineStore(state => state.filter);
   const zoomLevel = useTimelineStore(state => state.zoomLevel);
   const setZoomLevel = useTimelineStore(state => state.setZoomLevel);
@@ -23,29 +22,29 @@ const Timeline: React.FC = () => {
 
   useEffect(() => {
     const handleResize = () => {
-      if (timelineContainerRef.current) {
-        setContainerWidth(timelineContainerRef.current.clientWidth);
+      if (timelineContainerRef.current) { // Changed back to timelineContainerRef
+        setContainerWidth(timelineContainerRef.current.clientWidth); // Changed back to timelineContainerRef
       }
     };
 
-    const timelineContainerElement = timelineContainerRef.current;
+    const timelineContentElement = timelineContainerRef.current; // Changed to timelineRef
 
     const handleMouseDown = (e: MouseEvent) => {
-      if (timelineContainerElement) {
+      if (timelineContentElement) {
         setIsDragging(true);
-        setStartX(e.pageX - timelineContainerElement.offsetLeft);
-        setScrollLeft(timelineContainerElement.scrollLeft);
+        setStartX(e.pageX - timelineContentElement.offsetLeft);
+        setScrollLeft(timelineContentElement.scrollLeft);
       }
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging || !timelineContainerElement) return;
+      if (!isDragging || !timelineContentElement) return;
       e.preventDefault();
-      const x = e.pageX - timelineContainerElement.offsetLeft;
+      const x = e.pageX - timelineContentElement.offsetLeft;
       const walk = (x - startX); // The distance the user has dragged
 
       requestAnimationFrame(() => {
-        timelineContainerElement.scrollLeft = scrollLeft - walk;
+        timelineContentElement.scrollLeft = scrollLeft - walk;
       });
     };
 
@@ -53,46 +52,31 @@ const Timeline: React.FC = () => {
       setIsDragging(false);
     };
 
-    if (timelineContainerElement) {
+    if (timelineContentElement) {
       handleResize(); // Set initial width
       window.addEventListener('resize', handleResize);
-      timelineContainerElement.addEventListener('mousedown', handleMouseDown);
-      timelineContainerElement.addEventListener('mousemove', handleMouseMove);
-      timelineContainerElement.addEventListener('mouseup', handleMouseUp);
+      timelineContentElement.addEventListener('mousedown', handleMouseDown);
+      timelineContentElement.addEventListener('mousemove', handleMouseMove);
+      timelineContentElement.addEventListener('mouseup', handleMouseUp);
       // Add mouseup listener to window to stop dragging if mouse is released outside the container
       window.addEventListener('mouseup', handleMouseUp);
     }
 
 
     return () => {
-      if (timelineContainerElement) {
+      if (timelineContentElement) {
         window.removeEventListener('resize', handleResize);
-        timelineContainerElement.removeEventListener('mousedown', handleMouseDown);
-        timelineContainerElement.removeEventListener('mousemove', handleMouseMove);
-        timelineContainerElement.removeEventListener('mouseup', handleMouseUp);
+        timelineContentElement.removeEventListener('mousedown', handleMouseDown);
+        timelineContentElement.removeEventListener('mousemove', handleMouseMove);
+        timelineContentElement.removeEventListener('mouseup', handleMouseUp);
         window.removeEventListener('mouseup', handleMouseUp);
       }
     };
   }, [isDragging, startX, scrollLeft]);
 
 
-  // Apply filters to events
-  const filterEvents = (events: TimelineEventType[]) => {
-    return events.filter(event => {
-      if (filter.category && event.category !== filter.category) return false;
-      if (filter.region && event.region !== filter.region) return false;
-      if (filter.startYear && event.year < filter.startYear) return false;
-      if (filter.endYear && event.year > filter.endYear) return false;
-      return true;
-    });
-  };
-
   // Get all events from visible branches, filtered
-  const allVisibleBranches = visibleBranches();
-  const visibleBranchesWithFilteredEvents = allVisibleBranches.map(branch => ({
-    ...branch,
-    events: filterEvents(branch.events)
-  }));
+  const visibleBranchesWithFilteredEvents = visibleBranches();
 
   // Get all years from all visible events to calculate timeline scale
   const allYears = visibleBranchesWithFilteredEvents
@@ -133,14 +117,14 @@ const Timeline: React.FC = () => {
 
   // Handle scrolling controls
   const handleScroll = (direction: 'left' | 'right') => {
-    if (!timelineContainerRef.current) return;
+    if (!timelineContainerRef.current) return; // Changed to timelineRef
 
-    const scrollAmount = timelineContainerRef.current.clientWidth * 0.8;
+    const scrollAmount = timelineContainerRef.current.clientWidth * 0.8; // Changed to timelineRef
     const newPosition = direction === 'left'
-      ? timelineContainerRef.current.scrollLeft - scrollAmount
-      : timelineContainerRef.current.scrollLeft + scrollAmount;
+      ? timelineContainerRef.current.scrollLeft - scrollAmount // Changed to timelineRef
+      : timelineContainerRef.current.scrollLeft + scrollAmount; // Changed to timelineRef
 
-    timelineContainerRef.current.scrollTo({
+    timelineContainerRef.current.scrollTo({ // Changed to timelineRef
       left: newPosition,
       behavior: 'smooth'
     });
@@ -149,16 +133,16 @@ const Timeline: React.FC = () => {
   // Update scroll position when timeline scrolls
   useEffect(() => {
     const handleScrollEvent = () => {
-      if (timelineContainerRef.current) {
-        // setScrollPosition(timelineContainerRef.current.scrollLeft); // scrollPosition state is not used
+      if (timelineContainerRef.current) { // Changed to timelineRef
+        // setScrollPosition(timelineRef.current.scrollLeft); // scrollPosition state is not used
       }
     };
 
-    const timelineContainerElement = timelineContainerRef.current;
-    if (timelineContainerElement) {
-      timelineContainerElement.addEventListener('scroll', handleScrollEvent);
+    const timelineContentElement = timelineContainerRef.current; // Changed to timelineRef
+    if (timelineContentElement) {
+      timelineContentElement.addEventListener('scroll', handleScrollEvent);
       return () => {
-        timelineContainerElement.removeEventListener('scroll', handleScrollEvent);
+        timelineContentElement.removeEventListener('scroll', handleScrollEvent);
       };
     }
   }, []);
@@ -262,25 +246,34 @@ const Timeline: React.FC = () => {
   // Render connecting lines between branch points and new branches
   const renderConnectingLines = () => {
     const lines: JSX.Element[] = []; // Explicitly type lines
+    const currentVisibleBranches = visibleBranches();
 
     // Iterate through visible branches (excluding the main branch as it doesn't branch from another)
-    visibleBranches().filter(branch => branch.id !== timelineData.mainBranch.id).forEach((branch) => {
+    currentVisibleBranches.filter(branch => branch.id !== timelineData.mainBranch.id).forEach((branch) => {
       const branchPointEvent = findEventById(branch.branchPointEventId);
       const parentBranch = findBranchByEventId(branch.branchPointEventId);
 
+      // Helper to check if an event passes the current filter
+      const doesEventPassFilter = (event: TimelineEventType) => {
+        if (filter.category && event.category !== filter.category) return false;
+        if (filter.region && event.region !== filter.region) return false;
+        if (filter.startYear && event.year < filter.startYear) return false;
+        if (filter.endYear && event.year > filter.endYear) return false;
+        return true;
+      };
 
-      if (branchPointEvent && parentBranch && branch && branch.events && branch.events.length > 0) {
+      if (branchPointEvent && parentBranch && branch && branch.events && branch.events.length > 0 && currentVisibleBranches.some(b => b.id === parentBranch.id) && doesEventPassFilter(branchPointEvent)) {
         // Calculate positions
         const branchPointX = calculateEventPosition(branchPointEvent.year);
         const branchPointY = getBranchVerticalPosition(
           parentBranch.id === timelineData.mainBranch.id
             ? 0 // Main branch is at index 0
-            : visibleBranches().findIndex(b => b.id === parentBranch.id) // Find parent branch index among visible branches
+            : currentVisibleBranches.findIndex(b => b.id === parentBranch.id) // Find parent branch index among visible branches
         );
 
         const newBranchStartX = calculateEventPosition(branch.events[0].year);
         const newBranchStartY = getBranchVerticalPosition(
-          visibleBranches().findIndex(b => b.id === branch.id) // Find this branch's index among visible branches
+          currentVisibleBranches.findIndex(b => b.id === branch.id) // Find this branch's index among visible branches
         );
 
         // Draw a line using SVG
@@ -356,13 +349,13 @@ const Timeline: React.FC = () => {
       {/* Timeline content */}
       <div
         ref={timelineContainerRef}
-        className="flex-1 overflow-x-auto overflow-y-auto relative"
+        className="flex-1 relative flex flex-col overflow-x-auto" // Changed to flex-col to stack content and time markers
         onDoubleClick={zoomIn}
       >
         <div
           ref={timelineRef}
-          className="relative h-full"
-          style={{ width: `${timelineWidth}px`, minHeight: '400px' }}
+          className="relative flex-1 overflow-x-auto overflow-y-auto" // flex-1 to take remaining space, overflow-y-auto for content scrolling
+          style={{ width: `${timelineWidth}px`, minHeight: '400px' }} // Removed fixed height
         >
           {/* Render connecting lines */}
           {renderConnectingLines()}
@@ -425,10 +418,10 @@ const Timeline: React.FC = () => {
             );
           })}
 
-          {/* Time markers */}
-          <div className="absolute bottom-4 w-full h-8">
-            {renderTimeMarkers()}
-          </div>
+        </div>
+        {/* Time markers */}
+        <div className="w-full h-8 bg-white z-10 border-t border-gray-200 flex-shrink-0"> {/* Removed absolute positioning, added flex-shrink-0 */}
+          {renderTimeMarkers()}
         </div>
       </div>
     </div>
