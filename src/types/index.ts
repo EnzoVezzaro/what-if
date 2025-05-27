@@ -1,5 +1,5 @@
 export interface TimelineEvent {
-  id: string;
+  id: number;
   title: string;
   description: string;
   date: string; // ISO date string
