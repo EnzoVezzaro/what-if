@@ -126,7 +126,7 @@ const generateNewEvents = async (
 The events should logically follow from the alternative scenario and cover a period from ${branchPointEvent.year + 1} to ${currentYear}.
 
 Return the events as a JSON array, where each event has the following properties:
-- id: string (generate a unique ID, e.g., 'generated-event-1')
+- id: string (generate a unique ID, e.g., 'generated-event')
 - title: string
 - description: string. Make them detailed and engaging descriptions for each event, with at least three paragraphs per description
 - date: string (ISO date string, e.g., 'YYYY-MM-DD')
@@ -139,9 +139,9 @@ Return the events as a JSON array, where each event has the following properties
 Example format:
 [
   {
-    "id": "generated-event-1",
-    "title": "Alternative Event 1",
-    "description": "Description of alternative event 1. Make them detailed and engaging descriptions for each event, with at least three paragraphs per description",
+    "id": "generated-event",
+    "title": "Alternative Event",
+    "description": "Description of alternative event. Make them detailed and engaging descriptions for each event, with at least three paragraphs per description",
     "date": "YYYY-MM-DD",
     "imageUrl": "url1",
     "isBranchPoint": false,
